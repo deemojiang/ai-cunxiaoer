@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, type ServiceItem } from '../../api/client';
 import { scenarios, HOME_FEATURED } from '../../engine/scenarios';
 import { recognizeIntent, answerGeneral, voiceSamples } from '../../engine/intent';
+import { fetchLiveWeather } from '../../engine/weather';
 import type { ChatMsg, Ctx, Scenario, Step } from '../../engine/types';
 import { tpl } from '../../engine/types';
 
@@ -151,8 +152,22 @@ export default function ChatPage() {
     await sleep(300);
     if (my !== abort.current) return;
 
-    for (const node of sc.steps) {
+    const labels: Record<string, number> = {};
+    sc.steps.forEach((n, i) => {
+      if ('label' in n && n.label) labels[n.label] = i;
+    });
+
+    for (let i = 0; i < sc.steps.length; i++) {
+      const node = sc.steps[i];
       if (my !== abort.current) return;
+      if ('label' in node) continue;
+      if ('goto' in node) {
+        const target = typeof node.goto === 'function' ? node.goto(ctx) : node.goto;
+        if (target && labels[target] != null) {
+          i = labels[target] - 1;
+        }
+        continue;
+      }
       if ('step' in node) {
         setStep(node.step);
         await sleep(200);
@@ -357,15 +372,32 @@ export default function ChatPage() {
       return;
     }
 
-    append({ kind: 'searching', text: '正在思考…' });
+    const maybeWeather = /天气|气温|温度|下雨|冷不冷|热不热|穿什么|紫外线/.test(t);
+    append({ kind: 'searching', text: maybeWeather ? '正在获取实时天气…' : '正在思考…' });
     const ans = await answerGeneral(t);
     if (my !== abort.current) return;
     setMsgs((prev) => prev.filter((m) => m.kind !== 'searching'));
     if (ans.type === 'greet') {
       append({ kind: 'bot', text: ans.text });
     } else if (ans.type === 'weather') {
-      append({ kind: 'weather' });
-      append({ kind: 'bot', text: '需要我帮您查别的日期，或看看农事建议吗？' });
+      append({ kind: 'weather', loading: true });
+      try {
+        const data = await fetchLiveWeather();
+        if (my !== abort.current) return;
+        setMsgs((prev) =>
+          prev.map((m) => (m.kind === 'weather' && m.loading ? { kind: 'weather', data } : m)),
+        );
+        append({ kind: 'bot', text: '需要我帮您查别的日期，或看看农事建议吗？' });
+      } catch {
+        if (my !== abort.current) return;
+        setMsgs((prev) =>
+          prev.map((m) =>
+            m.kind === 'weather' && m.loading
+              ? { kind: 'weather', error: '暂时查不到天气，请稍后再试' }
+              : m,
+          ),
+        );
+      }
     } else if (ans.type === 'knowledge') {
       append({
         kind: 'bot',
@@ -539,16 +571,65 @@ export default function ChatPage() {
                 );
               if (m.kind === 'result') return <div className="result-tip" key={i}>{m.text}</div>;
               if (m.kind === 'searching') return <div className="searching" key={i}>🔍 {m.text}</div>;
-              if (m.kind === 'weather')
+              if (m.kind === 'weather') {
+                if (m.loading) {
+                  return (
+                    <div className="weather-card" key={i}>
+                      <div className="wc-h">
+                        <div>
+                          <div>📍 定位中…</div>
+                          <div style={{ fontSize: 11, opacity: 0.85 }}>正在获取实时天气</div>
+                        </div>
+                        <div style={{ fontSize: 36 }}>⏳</div>
+                      </div>
+                      <div className="wc-temp" style={{ fontSize: 16, fontWeight: 500 }}>加载中…</div>
+                      <div className="wc-src">数据来源：Open-Meteo 实时天气</div>
+                    </div>
+                  );
+                }
+                if (m.error || !m.data) {
+                  return (
+                    <div className="weather-card" key={i}>
+                      <div className="wc-h">
+                        <div>
+                          <div>📍 天气</div>
+                          <div style={{ fontSize: 11, opacity: 0.85 }}>实时</div>
+                        </div>
+                        <div style={{ fontSize: 36 }}>🌡️</div>
+                      </div>
+                      <div className="wc-temp" style={{ fontSize: 16, fontWeight: 500 }}>
+                        {m.error || '暂时查不到天气，请稍后再试'}
+                      </div>
+                      <div className="wc-src">数据来源：Open-Meteo 实时天气</div>
+                    </div>
+                  );
+                }
+                const w = m.data;
+                const range =
+                  w.low != null && w.high != null ? `${w.low}~${w.high}℃` : null;
                 return (
                   <div className="weather-card" key={i}>
-                    <div className="wc-h"><div><div>📍 本村</div><div style={{ fontSize: 11, opacity: .85 }}>实时</div></div><div style={{ fontSize: 36 }}>🌤️</div></div>
-                    <div className="wc-temp">27℃ <small style={{ fontSize: 14, fontWeight: 400 }}>晴转多云</small></div>
-                    <div className="wc-meta"><span>18~29℃</span><span>东南风 2级</span><span>湿度 65%</span></div>
-                    <div className="wc-tip">👕 早晚微凉，午间较热；适合晾晒农作物和户外农事。</div>
-                    <div className="wc-src">数据来源：AI 联网天气服务（演示）</div>
+                    <div className="wc-h">
+                      <div>
+                        <div>📍 {w.name}</div>
+                        <div style={{ fontSize: 11, opacity: 0.85 }}>实时</div>
+                      </div>
+                      <div style={{ fontSize: 36 }}>{w.emoji}</div>
+                    </div>
+                    <div className="wc-temp">
+                      {w.temp}℃{' '}
+                      <small style={{ fontSize: 14, fontWeight: 400 }}>{w.condition}</small>
+                    </div>
+                    <div className="wc-meta">
+                      {range && <span>{range}</span>}
+                      <span>{w.windLabel}</span>
+                      <span>湿度 {w.humidity}%</span>
+                    </div>
+                    <div className="wc-tip">{w.tip}</div>
+                    <div className="wc-src">数据来源：Open-Meteo 实时天气</div>
                   </div>
                 );
+              }
               if (m.kind === 'card') {
                 const c = m.card;
                 return (

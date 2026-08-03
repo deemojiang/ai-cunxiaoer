@@ -53,10 +53,36 @@ export type Village = {
 };
 export type Knowledge = { id: string; title: string; content: string; tags: string[]; category: string };
 
+export type WeatherResponse = {
+  name: string;
+  lat: number;
+  lon: number;
+  current: {
+    temperature_2m: number;
+    relative_humidity_2m: number;
+    weather_code: number;
+    wind_speed_10m: number;
+    wind_direction_10m: number;
+    time?: string;
+  };
+  daily: {
+    temperature_2m_max: number | null;
+    temperature_2m_min: number | null;
+  };
+};
+
 export const api = {
   me: () => req<User>('/me'),
   services: () => req<ServiceItem[]>('/services'),
   village: () => req<Village>('/village'),
+  weather: (lat: number, lon: number, name?: string) => {
+    const q = new URLSearchParams({
+      lat: String(lat),
+      lon: String(lon),
+      ...(name ? { name } : {}),
+    });
+    return req<WeatherResponse>(`/weather?${q}`);
+  },
   knowledge: (q?: string) => req<Knowledge[]>(`/knowledge${q ? `?q=${encodeURIComponent(q)}` : ''}`),
   orders: (cat = 'all') => req<Order[]>(`/orders?cat=${cat}`),
   order: (id: string) => req<Order>(`/orders/${id}`),

@@ -111,6 +111,7 @@ export const scenarios: Record<string, Scenario> = {
             : '照片已收到。需要匿名反映吗？（默认显示您的姓名）',
       },
       { opts: ['实名反映', '匿名反映'], pick: '实名反映', as: 'anon' },
+      { label: 'summary' },
       { step: 4 },
       {
         botFn: (ctx) =>
@@ -138,6 +139,33 @@ export const scenarios: Record<string, Scenario> = {
         },
       },
       { opts: ['确认提交', '修改信息'], pick: '确认提交', as: 'confirm' },
+      {
+        goto: (ctx) => (/修改/.test(ctx.confirm || '') ? 'recollect' : 'submit'),
+      },
+      { label: 'recollect' },
+      { bot: '好的，我们重新填写后再核对。请问是哪方面的情况？' },
+      { opts: ['环境卫生', '道路设施', '噪音扰民', '其他'], pick: '环境卫生', as: 'category' },
+      {
+        botFn: (ctx) =>
+          `明白，是「${ctx.category}」类问题。请重新描述一下具体情况，在什么位置？`,
+      },
+      {
+        waitText: {
+          as: 'desc',
+          demo: (ctx) => problemMeta(ctx).demo,
+          placeholder: '说说问题和位置…',
+        },
+      },
+      { bot: '需要更新照片吗？' },
+      {
+        opts: ['上传现场照片', '暂无照片'],
+        pick: '上传现场照片',
+        as: 'photo',
+      },
+      { bot: '需要匿名反映吗？（默认显示您的姓名）' },
+      { opts: ['实名反映', '匿名反映'], pick: '实名反映', as: 'anon' },
+      { goto: 'summary' },
+      { label: 'submit' },
       { step: 5 },
       {
         createOrderFn: (ctx) => {
@@ -165,12 +193,8 @@ export const scenarios: Record<string, Scenario> = {
         },
       },
       {
-        botFn: (ctx) => {
-          if (ctx.confirm === '修改信息') {
-            return '好的，如需修改请重新点「反映问题」再填一次。本次先按当前信息提交。';
-          }
-          return `✅ 工单已生成并派单！已通知${problemMeta(ctx).notify}。`;
-        },
+        botFn: (ctx) =>
+          `✅ 工单已生成并派单！已通知${problemMeta(ctx).notify}。`,
       },
       { step: 6 },
       {
@@ -212,6 +236,7 @@ export const scenarios: Record<string, Scenario> = {
         pick: '上传现场照片',
         as: 'photo',
       },
+      { label: 'summary' },
       { step: 4 },
       { bot: '请核对报修信息 👇' },
       {
@@ -232,7 +257,30 @@ export const scenarios: Record<string, Scenario> = {
           };
         },
       },
-      { opts: ['确认提交', '修改'], pick: '确认提交' },
+      { opts: ['确认提交', '修改'], pick: '确认提交', as: 'confirm' },
+      { goto: (ctx) => (/修改/.test(ctx.confirm || '') ? 'recollect' : 'submit') },
+      { label: 'recollect' },
+      { bot: '好的，我们重新填写后再核对。请问是哪类设施？' },
+      { opts: ['路灯', '健身器材', '监控', '垃圾桶'], pick: '路灯', as: 'facility' },
+      {
+        botFn: (ctx) =>
+          `收到，是「${ctx.facility}」报修。请重新说明位置和情况？`,
+      },
+      {
+        waitText: {
+          as: 'desc',
+          demo: (ctx) => repairMeta(ctx).demo,
+          placeholder: '说说位置和故障情况…',
+        },
+      },
+      { bot: '需要更新照片吗？' },
+      {
+        opts: ['上传现场照片', '暂无照片'],
+        pick: '上传现场照片',
+        as: 'photo',
+      },
+      { goto: 'summary' },
+      { label: 'submit' },
       { step: 5 },
       {
         createOrderFn: (ctx) => {
@@ -277,46 +325,61 @@ export const scenarios: Record<string, Scenario> = {
       { step: 2 },
       { bot: '好的，上架「板栗」。大概有多少斤？' },
       { step: 3 },
-      { user: '200 斤左右' },
+      { waitText: { as: 'qty', demo: '200 斤左右', placeholder: '大概多少斤？' } },
       { bot: '想卖多少钱一斤？' },
-      { user: '8 块' },
+      { waitText: { as: 'price', demo: '8 块', placeholder: '多少钱一斤？' } },
       { bot: '拍几张板栗的照片吧，买家看了更放心。' },
       { img: '板栗照片' },
+      { label: 'summary' },
       { step: 4 },
       { bot: '帮您整理好了，请核对 👇' },
       {
-        card: {
+        cardFn: (ctx) => ({
           title: '商品上架审核单',
           status: ['wait', '待审核'],
           rows: [
             ['商品', '新鲜板栗'],
-            ['数量', '约 200 斤'],
-            ['价格', '8 元/斤'],
+            ['数量', `约 ${ctx.qty || '200 斤左右'}`],
+            ['价格', `${ctx.price || '8 块'}/斤`.replace(' 块/斤', ' 元/斤').replace('块/斤', '元/斤')],
             ['联系人', '张大叔 138****1234'],
           ],
           track: ['已提交', '审核中', '已上架'],
           on: 0,
-        },
+        }),
       },
-      { opts: ['确认提交', '改一下'], pick: '确认提交' },
+      { opts: ['确认提交', '改一下'], pick: '确认提交', as: 'confirm' },
+      {
+        goto: (ctx) => (/改一下|修改/.test(ctx.confirm || '') ? 'recollect' : 'submit'),
+      },
+      { label: 'recollect' },
+      { bot: '好的，我们重新填写一下～大概有多少斤？' },
+      { waitText: { as: 'qty', demo: '150 斤左右', placeholder: '大概多少斤？' } },
+      { bot: '想卖多少钱一斤？' },
+      { waitText: { as: 'price', demo: '7 块', placeholder: '多少钱一斤？' } },
+      { goto: 'summary' },
+      { label: 'submit' },
       { step: 5 },
       {
-        createOrder: {
-          prefix: 'SP',
-          cat: 'product',
-          icon: '🌾',
-          title: '商品上架',
-          type: '新鲜板栗 · 8元/斤',
-          status: 'wait',
-          statusText: '待审核',
-          summary: '约200斤 · 等待审核',
-          rows: [
-            ['商品', '新鲜板栗'],
-            ['数量', '约 200 斤'],
-            ['价格', '8 元/斤'],
-            ['联系人', '张大叔 138****1234'],
-          ],
-          track: ['已提交', '审核中', '已上架'],
+        createOrderFn: (ctx) => {
+          const qty = ctx.qty || '200 斤左右';
+          const price = (ctx.price || '8 块').replace('块', '元');
+          return {
+            prefix: 'SP',
+            cat: 'product',
+            icon: '🌾',
+            title: '商品上架',
+            type: `新鲜板栗 · ${price}/斤`,
+            status: 'wait',
+            statusText: '待审核',
+            summary: `约${qty} · 等待审核`,
+            rows: [
+              ['商品', '新鲜板栗'],
+              ['数量', `约 ${qty}`],
+              ['价格', `${price}/斤`],
+              ['联系人', '张大叔 138****1234'],
+            ],
+            track: ['已提交', '审核中', '已上架'],
+          };
         },
       },
       { bot: '✅ 上架申请已提交，正在等村里审核。' },
@@ -414,6 +477,7 @@ export const scenarios: Record<string, Scenario> = {
       { bot: '需要帮您报名培训班吗？' },
       { opts: ['报名培训班', '约李姐请教', '先了解课程内容'], pick: '报名培训班', as: 'action' },
       { step: 4 },
+      { label: 'summary' },
       {
         botFn: (ctx) =>
           ctx.action === '报名培训班'
@@ -446,7 +510,19 @@ export const scenarios: Record<string, Scenario> = {
           };
         },
       },
-      { opts: ['确认报名', '改时间'], pick: '确认报名' },
+      { opts: ['确认报名', '改时间'], pick: '确认报名', as: 'confirm' },
+      {
+        goto: (ctx) => (/改时间|修改|再改/.test(ctx.confirm || '') ? 'recollect' : 'submit'),
+      },
+      { label: 'recollect' },
+      { bot: '好的，我们重新选一下意向～' },
+      {
+        opts: ['报名培训班', '约李姐请教', '先了解课程内容'],
+        pick: '约李姐请教',
+        as: 'action',
+      },
+      { goto: 'summary' },
+      { label: 'submit' },
       { step: 5 },
       {
         createOrderFn: (ctx) => {
@@ -503,29 +579,38 @@ export const scenarios: Record<string, Scenario> = {
         },
       },
       { bot: '您想预约哪个时段？' },
-      { opts: ['明天 上午', '明天 下午', '后天 上午'], pick: '明天 上午' },
+      { opts: ['明天 上午', '明天 下午', '后天 上午'], pick: '明天 上午', as: 'slot' },
       { step: 3 },
       { bot: '就诊人：张大叔 138****1234（已自动填充）' },
+      { label: 'summary' },
       { step: 4 },
       { bot: '请核对挂号信息 👇' },
       {
-        card: {
+        cardFn: (ctx) => ({
           title: '预约挂号单',
           status: ['ok', '已预约'],
           rows: [
             ['医院', '小浦镇卫生院'],
             ['科室', '内科'],
-            ['时间', '明天 上午'],
+            ['时间', ctx.slot || '明天 上午'],
             ['就诊人', '张大叔 138****1234'],
           ],
           track: ['已预约', '待就诊', '已就诊'],
           on: 0,
-        },
+        }),
       },
-      { opts: ['确认挂号', '换时段'], pick: '确认挂号' },
+      { opts: ['确认挂号', '换时段'], pick: '确认挂号', as: 'confirm' },
+      {
+        goto: (ctx) => (/换时段|修改|改时间/.test(ctx.confirm || '') ? 'recollect' : 'submit'),
+      },
+      { label: 'recollect' },
+      { bot: '好的，请重新选择预约时段～' },
+      { opts: ['明天 上午', '明天 下午', '后天 上午'], pick: '明天 下午', as: 'slot' },
+      { goto: 'summary' },
+      { label: 'submit' },
       { step: 5 },
       {
-        createOrder: {
+        createOrderFn: (ctx) => ({
           prefix: 'GH',
           cat: 'book',
           icon: '🏥',
@@ -533,15 +618,15 @@ export const scenarios: Record<string, Scenario> = {
           type: '小浦镇卫生院 · 内科',
           status: 'ok',
           statusText: '已预约',
-          summary: '明天上午 · 带好医保卡',
+          summary: `${ctx.slot || '明天 上午'} · 带好医保卡`,
           rows: [
             ['医院', '小浦镇卫生院'],
             ['科室', '内科'],
-            ['时间', '明天 上午'],
+            ['时间', ctx.slot || '明天 上午'],
             ['就诊人', '张大叔 138****1234'],
           ],
           track: ['已预约', '待就诊', '已就诊'],
-        },
+        }),
       },
       { step: 6 },
       { result: '🏥 挂号成功！请提前 15 分钟到院，带好身份证和医保卡。' },
@@ -676,10 +761,17 @@ export const scenarios: Record<string, Scenario> = {
         bot: '明天老年食堂菜单：\n荤菜：红烧肉、清蒸鱼\n素菜：炒青菜、豆腐汤\n主食：米饭\n（60岁以上 5 元/份）',
       },
       { bot: '需要帮您订一份吗？' },
-      { opts: ['订红烧肉套餐', '不用了'], pick: '订红烧肉套餐' },
+      { opts: ['订红烧肉套餐', '不用了'], pick: '订红烧肉套餐', as: 'mealPick' },
+      { goto: (ctx) => (ctx.mealPick === '不用了' ? 'mealCancel' : 'mealOrder') },
+      { label: 'mealCancel' },
+      { bot: '好的，不订也没关系～有需要随时跟我说，祝您今天安康！' },
+      { result: '🍚 已取消订餐，未生成订单。' },
+      { goto: 'mealEnd' },
+      { label: 'mealOrder' },
       { step: 3 },
       { bot: '好的，订几份？需要送餐上门吗？（80岁以上免费送）' },
       { user: '一份，我自己去拿' },
+      { label: 'summary' },
       { step: 4 },
       { bot: '请确认订餐信息 👇' },
       {
@@ -696,7 +788,11 @@ export const scenarios: Record<string, Scenario> = {
           on: 0,
         },
       },
-      { opts: ['确认', '取消'], pick: '确认' },
+      { opts: ['确认', '取消'], pick: '确认', as: 'confirm' },
+      {
+        goto: (ctx) => (/取消|不用/.test(ctx.confirm || '') ? 'mealCancel' : 'submit'),
+      },
+      { label: 'submit' },
       { step: 5 },
       {
         createOrder: {
@@ -718,6 +814,7 @@ export const scenarios: Record<string, Scenario> = {
       },
       { step: 6 },
       { result: '🍚 订餐成功！明天 11:30 到老年活动室取餐即可，我会提前提醒您～' },
+      { label: 'mealEnd' },
     ],
   },
 
@@ -733,27 +830,47 @@ export const scenarios: Record<string, Scenario> = {
       { step: 2 },
       { bot: '明白，是「搬运求助」。大概什么时间？在哪个位置？' },
       { step: 3 },
-      { user: '明天上午，就在 2 组我家里' },
+      {
+        waitText: {
+          as: 'whenWhere',
+          demo: '明天上午，就在 2 组我家里',
+          placeholder: '说说时间和位置…',
+        },
+      },
+      { label: 'summary' },
       { step: 4 },
       { bot: '帮您整理好啦，确认发布 👇' },
       {
-        card: {
+        cardFn: (ctx) => ({
           title: '邻里互助需求单',
           status: ['doing', '发布中'],
           rows: [
             ['类型', '搬运帮忙'],
-            ['时间', '明天上午'],
-            ['地点', '2组 · 求助人家中'],
+            ['时间/地点', ctx.whenWhere || '明天上午 · 2组'],
             ['发起人', '张大叔 138****1234'],
           ],
           track: ['已发布', '邻居响应', '已完成'],
           on: 0,
+        }),
+      },
+      { opts: ['确认发布', '再改改'], pick: '确认发布', as: 'confirm' },
+      {
+        goto: (ctx) => (/再改|修改/.test(ctx.confirm || '') ? 'recollect' : 'submit'),
+      },
+      { label: 'recollect' },
+      { bot: '好的，我们重新填一下～大概什么时间？在哪个位置？' },
+      {
+        waitText: {
+          as: 'whenWhere',
+          demo: '明天下午，还是 2 组我家里',
+          placeholder: '说说时间和位置…',
         },
       },
-      { opts: ['确认发布', '再改改'], pick: '确认发布' },
+      { goto: 'summary' },
+      { label: 'submit' },
       { step: 5 },
       {
-        createOrder: {
+        createOrderFn: (ctx) => ({
           prefix: 'HZ',
           cat: 'other',
           icon: '🤝',
@@ -764,11 +881,10 @@ export const scenarios: Record<string, Scenario> = {
           summary: '已发布到邻里圈',
           rows: [
             ['类型', '搬运帮忙'],
-            ['时间', '明天上午'],
-            ['地点', '2组'],
+            ['时间/地点', ctx.whenWhere || '明天上午 · 2组'],
           ],
           track: ['已发布', '邻居响应', '已完成'],
-        },
+        }),
       },
       { bot: '✅ 已发布到邻里圈！AI 已推送给附近热心邻居。' },
       { step: 6 },
@@ -813,7 +929,7 @@ export const scenarios: Record<string, Scenario> = {
         },
       },
       { bot: '晚上已被占用。您想预约哪个时段？' },
-      { opts: ['中午场', '改其它日期'], pick: '中午场' },
+      { opts: ['中午场', '改其它日期'], pick: '中午场', as: 'slot' },
       { bot: '需要帮您预约厨师吗？' },
       { opts: ['要，约张师傅+李帮厨', '只要张师傅', '场地就行'], pick: '要，约张师傅+李帮厨' },
       { bot: '18桌红事，推荐菜单如下 👇' },
@@ -832,14 +948,15 @@ export const scenarios: Record<string, Scenario> = {
       { bot: '这套菜单合适吗？' },
       { opts: ['就用这套', '换几道：不要虾，加本地土鹅'], pick: '换几道：不要虾，加本地土鹅' },
       { bot: '已调整：去掉虾，增加本地土鹅；可备注清淡桌。请核对预约信息 👇' },
+      { label: 'summary' },
       { step: 4 },
       {
-        card: {
+        cardFn: (ctx) => ({
           title: '文化礼堂预约单',
           status: ['wait', '待确认'],
           rows: [
             ['类型', '红事宴席'],
-            ['时段', '下周六 中午'],
+            ['时段', ctx.slot === '改其它日期' ? '其它日期（待定）' : '下周六 中午'],
             ['规模', '18桌 · 约180人'],
             ['厨师', '张师傅 + 李帮厨'],
             ['菜单', '标准套餐（去虾+加土鹅）'],
@@ -847,28 +964,37 @@ export const scenarios: Record<string, Scenario> = {
           ],
           track: ['已提交', '村委确认', '预约成功'],
           on: 0,
-        },
+        }),
       },
-      { opts: ['确认提交预约', '修改日期'], pick: '确认提交预约' },
+      { opts: ['确认提交预约', '修改日期'], pick: '确认提交预约', as: 'confirm' },
+      {
+        goto: (ctx) => (/修改日期|修改|再改/.test(ctx.confirm || '') ? 'recollect' : 'submit'),
+      },
+      { label: 'recollect' },
+      { bot: '好的，我们重新选一下日期和时段～' },
+      { opts: ['中午场', '改其它日期'], pick: '改其它日期', as: 'slot' },
+      { bot: '已按您的新选择更新，请再核对一次 👇' },
+      { goto: 'summary' },
+      { label: 'submit' },
       { step: 5 },
       {
-        createOrder: {
+        createOrderFn: (ctx) => ({
           prefix: 'LT',
           cat: 'book',
           icon: '🏛️',
           title: '文化礼堂预约',
-          type: '红事宴席 · 中午',
+          type: ctx.slot === '改其它日期' ? '红事宴席 · 其它日期' : '红事宴席 · 中午',
           status: 'wait',
           statusText: '待确认',
           summary: '18桌 · 张师傅+李帮厨',
           rows: [
             ['类型', '红事宴席'],
-            ['时段', '下周六 中午'],
+            ['时段', ctx.slot === '改其它日期' ? '其它日期（待定）' : '下周六 中午'],
             ['规模', '18桌'],
             ['厨师', '张师傅 + 李帮厨'],
           ],
           track: ['已提交', '村委确认', '预约成功'],
-        },
+        }),
       },
       { bot: '✅ 预约单已提交！已通知村委礼堂管理员确认档期。' },
       { step: 6 },

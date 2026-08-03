@@ -23,6 +23,64 @@ function adminAuth(req: express.Request, res: express.Response, next: express.Ne
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
+/** 实时天气代理（Open-Meteo，无需 API Key）；默认长兴 */
+app.get('/api/weather', async (req, res) => {
+  const DEFAULT_LAT = 31.026;
+  const DEFAULT_LON = 119.91;
+  const DEFAULT_NAME = '长兴';
+  try {
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    const latitude = Number.isFinite(lat) ? lat : DEFAULT_LAT;
+    const longitude = Number.isFinite(lon) ? lon : DEFAULT_LON;
+    const name = String(req.query.name || DEFAULT_NAME).trim() || DEFAULT_NAME;
+
+    const params = new URLSearchParams({
+      latitude: String(latitude),
+      longitude: String(longitude),
+      current: 'temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m',
+      daily: 'temperature_2m_max,temperature_2m_min',
+      timezone: 'Asia/Shanghai',
+      forecast_days: '1',
+    });
+    const upstream = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+    if (!upstream.ok) {
+      res.status(502).json({ error: '暂时查不到天气，请稍后再试' });
+      return;
+    }
+    const data = (await upstream.json()) as {
+      current?: {
+        temperature_2m?: number;
+        relative_humidity_2m?: number;
+        weather_code?: number;
+        wind_speed_10m?: number;
+        wind_direction_10m?: number;
+        time?: string;
+      };
+      daily?: {
+        temperature_2m_max?: number[];
+        temperature_2m_min?: number[];
+      };
+    };
+    if (!data.current || data.current.temperature_2m == null) {
+      res.status(502).json({ error: '暂时查不到天气，请稍后再试' });
+      return;
+    }
+    res.json({
+      name,
+      lat: latitude,
+      lon: longitude,
+      current: data.current,
+      daily: {
+        temperature_2m_max: data.daily?.temperature_2m_max?.[0] ?? null,
+        temperature_2m_min: data.daily?.temperature_2m_min?.[0] ?? null,
+      },
+    });
+  } catch {
+    res.status(502).json({ error: '暂时查不到天气，请稍后再试' });
+  }
+});
+
 app.get('/api/me', (_req, res) => {
   const db = loadDb();
   res.json(db.users[0]);

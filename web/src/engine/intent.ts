@@ -24,7 +24,18 @@ export function recognizeIntent(t: string): string | null {
   return null;
 }
 
-const weatherWords = ['天气', '气温', '温度', '下雨', '冷不冷', '热不热', '穿什么', '紫外线'];
+const weatherWords = [
+  '天气',
+  '气温',
+  '温度',
+  '下雨',
+  '会不会下',
+  '冷不冷',
+  '热不热',
+  '穿什么',
+  '紫外线',
+  '有没有雨',
+];
 const greetWords = ['你好', '您好', '在吗', '早上好', '晚上好', '谢谢', '多谢'];
 
 export type GeneralAnswer =

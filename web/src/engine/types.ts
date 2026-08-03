@@ -26,6 +26,8 @@ export type CreateOrderPayload = {
 
 export type SceneNode =
   | { step: Step }
+  | { label: string }
+  | { goto: string | ((ctx: Ctx) => string | null | undefined) }
   | { bot: string }
   | { botFn: (ctx: Ctx) => string }
   | { user: string } // 仅演示自动代说（无 as 的旧脚本兼容）
@@ -90,7 +92,22 @@ export type ChatMsg =
   | { kind: 'menu'; menu: Extract<SceneNode, { menu: unknown }>['menu'] }
   | { kind: 'info'; info: Extract<SceneNode, { infoPanel: unknown }>['infoPanel'] }
   | { kind: 'med'; med: Extract<SceneNode, { medSlots: unknown }>['medSlots'] }
-  | { kind: 'weather' }
+  | {
+      kind: 'weather';
+      loading?: boolean;
+      error?: string;
+      data?: {
+        name: string;
+        temp: number;
+        condition: string;
+        emoji: string;
+        humidity: number;
+        windLabel: string;
+        high: number | null;
+        low: number | null;
+        tip: string;
+      };
+    }
   | { kind: 'searching'; text: string }
   | { kind: 'welcome' };
 
