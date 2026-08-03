@@ -34,8 +34,10 @@
 
 ## 本地快速启动
 
+工程路径：`未来乡村ai版/ai-cunxiaoer`
+
 ```bash
-cd ai-cunxiaoer
+cd 未来乡村ai版/ai-cunxiaoer
 npm install
 npm run dev
 ```

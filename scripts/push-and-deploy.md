@@ -15,7 +15,7 @@ gh auth login -h github.com -p https -w
 在项目根目录 `ai-cunxiaoer` 执行：
 
 ```powershell
-cd d:\2.Work\project\cursor\ai-cunxiaoer
+cd "d:\2.Work\project\cursor\未来乡村ai版\ai-cunxiaoer"
 gh repo create deemojiang/ai-cunxiaoer --public --source=. --remote=origin --push --description "AI 村小二 · 未来乡村便民服务"
 ```
 
