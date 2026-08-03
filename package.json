@@ -1,0 +1,22 @@
+{
+  "name": "ai-cunxiaoer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI 村小二 · 未来乡村便民服务完整应用",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,web -c green,cyan \"npm run dev -w server\" \"npm run dev -w web\"",
+    "build": "npm run build -w web && npm run build -w server",
+    "start": "npm run start -w server",
+    "install:all": "npm install"
+  },
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
