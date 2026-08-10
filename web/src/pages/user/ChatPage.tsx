@@ -373,7 +373,11 @@ export default function ChatPage() {
     }
 
     const maybeWeather = /天气|气温|温度|下雨|冷不冷|热不热|穿什么|紫外线/.test(t);
-    append({ kind: 'searching', text: maybeWeather ? '正在获取实时天气…' : '正在思考…' });
+    const maybeInstant = /(几号|日期|星期|几点|节气|现在什么时候)/.test(t);
+    append({
+      kind: 'searching',
+      text: maybeWeather ? '正在获取实时天气…' : maybeInstant ? '正在查询…' : '正在思考…',
+    });
     const ans = await answerGeneral(t);
     if (my !== abort.current) return;
     setMsgs((prev) => prev.filter((m) => m.kind !== 'searching'));
@@ -398,16 +402,19 @@ export default function ChatPage() {
           ),
         );
       }
+    } else if (ans.type === 'fact') {
+      append({ kind: 'bot', text: ans.text });
+      append({ kind: 'bot', text: '办村里的事也可以直接跟我说～' });
     } else if (ans.type === 'knowledge') {
       append({
         kind: 'bot',
         text: `${ans.title}\n${ans.body}\n\n${ans.source}`,
       });
-    } else if (ans.type === 'search') {
-      append({ kind: 'bot', text: `${ans.title}\n${ans.body}` });
-      append({ kind: 'bot', text: '如果是要办事（报修、卖货、问政策等），告诉我，我可以直接帮您处理👇' });
     } else {
-      append({ kind: 'bot', text: '我可以帮您办事，也能回答天气、百科等日常问题。您可以点选下面的事项：' });
+      append({
+        kind: 'bot',
+        text: '这个问题我暂时答不准，您可以换个问法，或告诉我要办的事（报修、反映问题、问政策等）。也可以点选下面的事项：',
+      });
       append({
         kind: 'opts',
         opts: Object.values(scenarios).slice(0, 6).map((s) => `${s.icon} ${s.name}`),
@@ -532,7 +539,7 @@ export default function ChatPage() {
                     </div>
                     <div className="ask-hi">💬 也可以随便问我：天气、节气农事、百科常识等日常问题～</div>
                     <div className="options flat">
-                      {['今天天气怎么样', '帮我在卫生院挂个号', '龙溪村村支书是谁'].map((q) => (
+                      {['今天天气怎么样', '今天几号', '现在是什么节气'].map((q) => (
                         <div key={q} className="opt" onClick={() => sendText(q)}>💬 {q}</div>
                       ))}
                     </div>

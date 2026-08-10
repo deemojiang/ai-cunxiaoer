@@ -20,6 +20,8 @@ const intentMap = [
 ];
 
 function recognizeIntent(t) {
+  if (/(怎么保存|如何保存|怎样保存|怎么放|放多久|小知识)/.test(t)) return null;
+  if (/(今天几号|几号了|今天星期几|现在几点|几点了|现在什么时候|日期|节气|天气|气温|温度)/.test(t)) return null;
   for (const [k, ws] of intentMap) {
     if (ws.some((w) => t.includes(w))) return k;
   }
@@ -32,6 +34,8 @@ const greetWords = ['你好', '您好', '在吗', '早上好', '晚上好', '谢
 function classifyGeneral(text) {
   if (greetWords.some((w) => text.includes(w))) return 'greet';
   if (weatherWords.some((w) => text.includes(w))) return 'weather';
+  if (/(今天几号|几号了|今天星期几|现在几点|几点了|现在什么时候|日期)/.test(text)) return 'datetime';
+  if (/(节气|二十四节气)/.test(text)) return 'solar_term';
   return 'knowledge_or_search';
 }
 
@@ -67,6 +71,9 @@ const generalCases = [
   ['你好', 'greet'],
   ['谢谢', 'greet'],
   ['冷不冷', 'weather'],
+  ['今天几号', 'datetime'],
+  ['现在几点', 'datetime'],
+  ['现在是什么节气', 'solar_term'],
 ];
 
 let passed = 0;
@@ -138,11 +145,10 @@ async function main() {
 
   // 知识库命中：意图未命中时走 knowledge
   const noIntent = recognizeIntent('板栗怎么保存');
-  ok('「板栗怎么保存」不误入办事意图', noIntent === null || noIntent === 'sell', `实际意图=${noIntent}`);
-  // Note: 「板栗」会命中 sell — this is a known conflict worth reporting
-  if (noIntent === 'sell') {
-    console.log('  ⚠️ 已知问题：「板栗怎么保存」因含「板栗」被识别为卖农产品，而非百科问答');
-  }
+  ok('「板栗怎么保存」不误入办事意图', noIntent === null, `实际意图=${noIntent}`);
+
+  ok('「今天几号」不误入办事意图', recognizeIntent('今天几号') === null);
+  ok('「现在是什么节气」不误入办事意图', recognizeIntent('现在是什么节气') === null);
 
   console.log('\n========== 4. 工单创建与查询 ==========\n');
   const created = await api('/orders', {

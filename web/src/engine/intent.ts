@@ -1,4 +1,9 @@
 import { api, type Knowledge } from '../api/client';
+import {
+  answerDateTime,
+  answerSolarTerm,
+  isDailyFactQuestion,
+} from './calendar';
 
 const intentMap: [string, string[]][] = [
   ['village', ['村务', '村支书', '村干部', '村规', '村约', '龙溪村', '村务公开', '网格长', '班子成员']],
@@ -18,6 +23,8 @@ const intentMap: [string, string[]][] = [
 export function recognizeIntent(t: string): string | null {
   // 百科/保存类问法优先于「卖农产品」（避免「板栗怎么保存」误入卖货）
   if (/(怎么保存|如何保存|怎样保存|怎么放|放多久|小知识)/.test(t)) return null;
+  // 日期/时间/节气/天气等日常事实问答，不进办事场景
+  if (isDailyFactQuestion(t)) return null;
   for (const [k, ws] of intentMap) {
     if (ws.some((w) => t.includes(w))) return k;
   }
@@ -41,8 +48,8 @@ const greetWords = ['你好', '您好', '在吗', '早上好', '晚上好', '谢
 export type GeneralAnswer =
   | { type: 'greet'; text: string }
   | { type: 'weather' }
+  | { type: 'fact'; text: string }
   | { type: 'knowledge'; title: string; body: string; source: string }
-  | { type: 'search'; title: string; body: string }
   | { type: 'fallback' };
 
 export async function answerGeneral(text: string): Promise<GeneralAnswer> {
@@ -55,6 +62,13 @@ export async function answerGeneral(text: string): Promise<GeneralAnswer> {
   if (weatherWords.some((w) => text.includes(w))) {
     return { type: 'weather' };
   }
+
+  const dateAns = answerDateTime(text);
+  if (dateAns) return { type: 'fact', text: dateAns };
+
+  const termAns = answerSolarTerm(text);
+  if (termAns) return { type: 'fact', text: termAns };
+
   try {
     const list: Knowledge[] = await api.knowledge(text);
     if (list.length) {
@@ -69,13 +83,7 @@ export async function answerGeneral(text: string): Promise<GeneralAnswer> {
   } catch {
     /* ignore */
   }
-  if (/[?？]$/.test(text) || /(吗|怎么|为什么|是什么|多少|如何)/.test(text) || text.length >= 4) {
-    return {
-      type: 'search',
-      title: '🔎 为您找到以下信息',
-      body: `关于「${text}」，综合知识库与联网资料的简要解答：\nAI 村小二会检索权威来源，用大白话总结要点。正式版可接入实时搜索返回更准确内容。`,
-    };
-  }
+
   return { type: 'fallback' };
 }
 
