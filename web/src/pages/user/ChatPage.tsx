@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, type ServiceItem } from '../../api/client';
 import { scenarios, HOME_FEATURED } from '../../engine/scenarios';
-import { recognizeIntent, answerGeneral, isOrderStatusQuery, voiceSamples } from '../../engine/intent';
+import { recognizeIntent, answerGeneral, isOrderStatusQuery } from '../../engine/intent';
+import { createVoiceRecognizer, isSpeechRecognitionSupported, type VoiceRecognizer } from '../../engine/voice';
 import { fetchLiveWeather } from '../../engine/weather';
 import type { ChatMsg, Ctx, Scenario, Step } from '../../engine/types';
 import { tpl } from '../../engine/types';
@@ -23,6 +24,7 @@ export default function ChatPage() {
   const [showStepper, setShowStepper] = useState(false);
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
+  const [interimText, setInterimText] = useState('');
   const [showAll, setShowAll] = useState(false);
   const [docOpen, setDocOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -31,6 +33,12 @@ export default function ChatPage() {
   const chatRef = useRef<HTMLDivElement>(null);
   const abort = useRef(0);
   const textWaiter = useRef<TextWaiter | null>(null);
+  const voiceRef = useRef<VoiceRecognizer | null>(null);
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressActiveRef = useRef(false);
+  const touchUsedRef = useRef(false);
+
+  const LONG_PRESS_MS = 300;
 
   useEffect(() => {
     api.services().then(setServices).catch(() => {
@@ -54,6 +62,14 @@ export default function ChatPage() {
     window.addEventListener('ai-send', onSend);
     return () => window.removeEventListener('ai-send', onSend);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
+      voiceRef.current?.abort();
+      voiceRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -441,13 +457,91 @@ export default function ChatPage() {
     else sendText(label.replace(/^💬\s*/, ''));
   }
 
-  function startVoice() {
+  function showVoiceUnsupported() {
+    append({ kind: 'bot', text: '当前浏览器不支持语音输入，请改用文字' });
+  }
+
+  function stopVoiceSession() {
+    voiceRef.current?.stop();
+    voiceRef.current = null;
+  }
+
+  function startVoiceSession() {
+    if (!isSpeechRecognitionSupported()) {
+      showVoiceUnsupported();
+      return;
+    }
+    if (voiceRef.current) return;
+
     setListening(true);
-    setTimeout(() => {
-      setListening(false);
-      const s = voiceSamples[Math.floor(Math.random() * voiceSamples.length)];
-      sendText(s);
-    }, 1600);
+    setInterimText('');
+
+    const rec = createVoiceRecognizer({
+      onInterim: (t) => setInterimText(t),
+      onEnd: (final) => {
+        voiceRef.current = null;
+        setListening(false);
+        setInterimText('');
+        if (final) sendText(final);
+      },
+      onError: (msg) => {
+        voiceRef.current = null;
+        setListening(false);
+        setInterimText('');
+        if (msg) append({ kind: 'bot', text: msg });
+      },
+    });
+
+    voiceRef.current = rec;
+    rec.start();
+  }
+
+  function clearPressTimer() {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+  }
+
+  /** Touch: long-press to hold-to-talk. Desktop: long-press or short click toggles. */
+  function onMicPressStart(fromTouch: boolean) {
+    if (fromTouch) touchUsedRef.current = true;
+    else if (touchUsedRef.current) return;
+
+    longPressActiveRef.current = false;
+    clearPressTimer();
+    pressTimerRef.current = setTimeout(() => {
+      longPressActiveRef.current = true;
+      startVoiceSession();
+    }, LONG_PRESS_MS);
+  }
+
+  function onMicPressEnd(fromTouch: boolean) {
+    if (fromTouch) {
+      touchUsedRef.current = true;
+      window.setTimeout(() => {
+        touchUsedRef.current = false;
+      }, 400);
+    } else if (touchUsedRef.current) return;
+
+    clearPressTimer();
+
+    if (longPressActiveRef.current) {
+      longPressActiveRef.current = false;
+      stopVoiceSession();
+      return;
+    }
+
+    // Desktop short click: toggle listen on/off
+    if (!fromTouch) {
+      if (listening) stopVoiceSession();
+      else startVoiceSession();
+    }
+  }
+
+  function onMicPressCancel() {
+    clearPressTimer();
+    longPressActiveRef.current = false;
   }
 
   function onAttach(file: File | null) {
@@ -733,12 +827,43 @@ export default function ChatPage() {
           <div className={`listen ${listening ? 'show' : ''}`}>
             <div className="box">
               <div style={{ fontSize: 15, marginBottom: 6 }}>正在聆听…</div>
-              <div style={{ fontSize: 11, opacity: .85 }}>演示模式 · 自动识别</div>
+              {interimText && (
+                <div style={{ fontSize: 13, marginBottom: 6, minHeight: 20 }}>{interimText}</div>
+              )}
+              <div style={{ fontSize: 11, opacity: .85 }}>松开结束 · 说出您的问题</div>
             </div>
           </div>
 
           <div className="inputbar">
-            <button type="button" onClick={startVoice} title="语音">🎙️</button>
+            <button
+              type="button"
+              title="长按说话（手机）/ 点击切换（电脑）"
+              onTouchStart={(e) => {
+                e.preventDefault();
+                onMicPressStart(true);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                onMicPressEnd(true);
+              }}
+              onTouchCancel={() => {
+                onMicPressCancel();
+                if (listening) stopVoiceSession();
+              }}
+              onMouseDown={() => onMicPressStart(false)}
+              onMouseUp={() => onMicPressEnd(false)}
+              onMouseLeave={() => {
+                if (longPressActiveRef.current) {
+                  onMicPressCancel();
+                  stopVoiceSession();
+                } else {
+                  onMicPressCancel();
+                }
+              }}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              🎙️
+            </button>
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -778,7 +903,7 @@ const DOC_SUMMARY = `未来乡村 AI 版 · 便民服务需求清单（摘要）
 
 核心能力：
 · 首页两排服务卡片 +「更多」
-· 打字 / 语音（模拟）/ 附件三种输入
+· 打字 / 语音（长按说话）/ 附件三种输入
 · 十二场景六步办事流程（识别→确认→采集→摘要→生单→反馈）
 · 通用问答（天气、百科、知识库）
 · 我的工单中心（分类、详情、进度）

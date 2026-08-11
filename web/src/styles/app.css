@@ -230,6 +230,14 @@ body {
 .listen.show { display: flex; }
 .listen .box {
   background: var(--green); color: #fff; padding: 22px 32px; border-radius: 20px; text-align: center;
+  min-width: 180px;
+}
+.listen.show .box {
+  animation: listen-pulse 1.2s ease-in-out infinite;
+}
+@keyframes listen-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35); }
+  50% { transform: scale(1.03); box-shadow: 0 0 0 14px rgba(255, 255, 255, 0); }
 }
 .my-page { padding: 0 2px 16px; }
 .my-header {
