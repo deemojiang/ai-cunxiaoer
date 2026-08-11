@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, type ServiceItem } from '../../api/client';
 import { scenarios, HOME_FEATURED } from '../../engine/scenarios';
-import { recognizeIntent, answerGeneral, voiceSamples } from '../../engine/intent';
+import { recognizeIntent, answerGeneral, isOrderStatusQuery, voiceSamples } from '../../engine/intent';
 import { fetchLiveWeather } from '../../engine/weather';
 import type { ChatMsg, Ctx, Scenario, Step } from '../../engine/types';
 import { tpl } from '../../engine/types';
@@ -334,8 +334,8 @@ export default function ChatPage() {
     await sleep(300);
     if (my !== abort.current) return;
 
-    // progress query
-    if (/进度|处理了吗|办好了吗|审核了吗|到哪一步/.test(t) || /[A-Z]{2}\d{8,}/.test(t)) {
+    // progress / order status query
+    if (isOrderStatusQuery(t)) {
       try {
         const list = await api.orders();
         const byNo = list.find((o) => t.includes(o.no));
@@ -354,12 +354,17 @@ export default function ChatPage() {
             },
           });
           append({ kind: 'result', text: `📍 当前状态：${hit.statusText}\n${hit.summary}` });
-          setBusy(false);
-          return;
+        } else {
+          append({
+            kind: 'bot',
+            text: '您还没有工单，可以先点选下面事项办理',
+          });
         }
       } catch {
-        /* fallthrough */
+        append({ kind: 'bot', text: '暂时查不到工单信息，请稍后再试' });
       }
+      setBusy(false);
+      return;
     }
 
     const key = recognizeIntent(t);

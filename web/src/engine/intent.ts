@@ -20,6 +20,32 @@ const intentMap: [string, string[]][] = [
   ['help', ['帮忙', '搬', '借个', '借一下', '互助', '搭把手', '照看']],
 ];
 
+const orderStatusPatterns: RegExp[] = [
+  /工单查询/,
+  /查工单/,
+  /我的工单/,
+  /工单进度/,
+  /进度/,
+  /处理怎么样了/,
+  /处理得怎么样/,
+  /处理了吗/,
+  /处理情况/,
+  /反馈.{0,20}怎么样/,
+  /问题.{0,20}怎么样/,
+  /办好了吗/,
+  /办得怎么样/,
+  /审核了吗/,
+  /到哪一步/,
+  /到哪了/,
+];
+
+/** 用户是否在查询工单/反馈处理进度（含单号直查） */
+export function isOrderStatusQuery(text: string): boolean {
+  const t = text.trim();
+  if (/[A-Z]{2}\d{8,}/.test(t)) return true;
+  return orderStatusPatterns.some((p) => p.test(t));
+}
+
 export function recognizeIntent(t: string): string | null {
   // 百科/保存类问法优先于「卖农产品」（避免「板栗怎么保存」误入卖货）
   if (/(怎么保存|如何保存|怎样保存|怎么放|放多久|小知识)/.test(t)) return null;

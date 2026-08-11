@@ -19,6 +19,30 @@ const intentMap = [
   ['help', ['帮忙', '搬', '借个', '借一下', '互助', '搭把手', '照看']],
 ];
 
+function isOrderStatusQuery(text) {
+  const t = text.trim();
+  if (/[A-Z]{2}\d{8,}/.test(t)) return true;
+  const patterns = [
+    /工单查询/,
+    /查工单/,
+    /我的工单/,
+    /工单进度/,
+    /进度/,
+    /处理怎么样了/,
+    /处理得怎么样/,
+    /处理了吗/,
+    /处理情况/,
+    /反馈.{0,20}怎么样/,
+    /问题.{0,20}怎么样/,
+    /办好了吗/,
+    /办得怎么样/,
+    /审核了吗/,
+    /到哪一步/,
+    /到哪了/,
+  ];
+  return patterns.some((p) => p.test(t));
+}
+
 function recognizeIntent(t) {
   if (/(怎么保存|如何保存|怎样保存|怎么放|放多久|小知识)/.test(t)) return null;
   if (/(今天几号|几号了|今天星期几|现在几点|几点了|现在什么时候|日期|节气|天气|气温|温度)/.test(t)) return null;
@@ -181,9 +205,16 @@ async function main() {
     ok('GET /api/orders/:no 按单号查', byNo.status === 200 && byNo.data.no === created.data.no);
   }
 
-  const progressQ = '进度怎么样了';
-  const isProgress = /进度|处理了吗|办好了吗|审核了吗|到哪一步/.test(progressQ);
-  ok('查进度话术可识别', isProgress === true);
+  const progressCases = [
+    '进度怎么样了',
+    '工单查询',
+    '我反馈的问题处理的怎么样了',
+    '处理得怎么样了',
+  ];
+  for (const q of progressCases) {
+    ok(`查进度话术可识别: ${q}`, isOrderStatusQuery(q) === true);
+  }
+  ok('天气问句不误入查进度', isOrderStatusQuery('今天天气怎么样') === false);
 
   console.log('\n========== 5. 管理后台 ==========\n');
   const badLogin = await api('/admin/login', {
