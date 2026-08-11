@@ -129,6 +129,10 @@ app.post('/api/orders', (req, res) => {
   const body = req.body as Partial<Order> & { prefix?: string };
   const prefix = body.prefix || 'XX';
   const no = body.no || genOrderNo(prefix);
+  const ts = now();
+  const timelineSrc = body.detail?.timeline?.length
+    ? body.detail.timeline
+    : [{ txt: '提交申请', cur: true }];
   const order: Order = {
     id: uuid(),
     no,
@@ -140,16 +144,17 @@ app.post('/api/orders', (req, res) => {
     status: body.status || 'wait',
     statusText: body.statusText || '待受理',
     summary: body.summary || '',
-    time: now(),
-    detail: body.detail || {
-      rows: [],
-      timeline: [{ t: now(), txt: '提交申请', cur: true }],
+    time: ts,
+    detail: {
+      rows: body.detail?.rows || [],
+      timeline: timelineSrc.map((item, i) => ({
+        t: i === 0 ? ts : '—',
+        txt: item.txt,
+        cur: i === 0,
+      })),
     },
     fields: body.fields,
   };
-  if (!order.detail.timeline?.length) {
-    order.detail.timeline = [{ t: now(), txt: '提交申请', cur: true }];
-  }
   db.orders.unshift(order);
   saveDb(db);
   res.status(201).json(order);

@@ -60,10 +60,28 @@ export type Db = {
   tokens: Record<string, string>;
 };
 
+const TZ = 'Asia/Shanghai';
+
+function shanghaiParts(date = new Date()) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: TZ,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+      .formatToParts(date)
+      .map((p) => [p.type, p.value]),
+  );
+  return parts;
+}
+
 function now() {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  const p = shanghaiParts();
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
 }
 
 function seed(): Db {
@@ -300,9 +318,8 @@ export function saveDb(db: Db) {
 }
 
 export function genOrderNo(prefix: string) {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+  const p = shanghaiParts();
+  const stamp = `${p.year}${p.month}${p.day}`;
   const rand = String(Math.floor(Math.random() * 900) + 100);
   return `${prefix || 'XX'}${stamp}${rand}`;
 }

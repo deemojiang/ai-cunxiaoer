@@ -89,7 +89,7 @@ export default function ChatPage() {
         detail: {
           rows: p.rows,
           timeline: p.track.map((txt, i) => ({
-            t: i === 0 ? new Date().toLocaleString('zh-CN', { hour12: false }) : '—',
+            t: '—',
             txt,
             cur: i === 0,
           })),
