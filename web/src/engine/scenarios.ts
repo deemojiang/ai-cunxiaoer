@@ -75,6 +75,48 @@ function repairMeta(ctx: Ctx) {
   return REPAIR_META[ctx.facility] || REPAIR_META['路灯'];
 }
 
+const MED_META: Record<
+  string,
+  { title: string; dept: string; slots: { nm: string; st: string; label: string }[] }
+> = {
+  '小浦镇卫生院 · 内科': {
+    title: '小浦镇卫生院 · 内科',
+    dept: '内科',
+    slots: [
+      { nm: '明天 上午', st: 'ok', label: '余 12 号' },
+      { nm: '明天 下午', st: 'few', label: '余 3 号' },
+      { nm: '后天 上午', st: 'ok', label: '余 18 号' },
+    ],
+  },
+  '小浦镇卫生院 · 中医科': {
+    title: '小浦镇卫生院 · 中医科',
+    dept: '中医科',
+    slots: [
+      { nm: '明天 上午', st: 'ok', label: '余 8 号' },
+      { nm: '明天 下午', st: 'few', label: '余 2 号' },
+      { nm: '后天 上午', st: 'ok', label: '余 10 号' },
+    ],
+  },
+  '长兴县中医院': {
+    title: '长兴县中医院 · 中医科',
+    dept: '中医科',
+    slots: [
+      { nm: '明天 上午', st: 'few', label: '余 5 号' },
+      { nm: '明天 下午', st: 'ok', label: '余 9 号' },
+      { nm: '后天 上午', st: 'ok', label: '余 14 号' },
+    ],
+  },
+};
+
+function medMeta(ctx: Ctx) {
+  return MED_META[ctx.hospital] || MED_META['小浦镇卫生院 · 内科'];
+}
+
+function medHospitalName(ctx: Ctx) {
+  const h = ctx.hospital || '小浦镇卫生院 · 内科';
+  return h.includes(' · ') ? h.split(' · ')[0] : h;
+}
+
 export const scenarios: Record<string, Scenario> = {
   problem: {
     key: 'problem',
@@ -566,16 +608,19 @@ export const scenarios: Record<string, Scenario> = {
       { opts: ['预约挂号', '健康咨询', '查附近卫生院'], pick: '预约挂号' },
       { step: 2 },
       { bot: '好的，帮您挂号。请问去哪个医院？看什么科？' },
-      { opts: ['小浦镇卫生院 · 内科', '小浦镇卫生院 · 中医科', '长兴县中医院'], pick: '小浦镇卫生院 · 内科' },
+      {
+        opts: ['小浦镇卫生院 · 内科', '小浦镇卫生院 · 中医科', '长兴县中医院'],
+        pick: '小浦镇卫生院 · 内科',
+        as: 'hospital',
+      },
       { bot: '查一下最近可预约号源…' },
       {
-        medSlots: {
-          title: '🏥 小浦镇卫生院 · 内科 号源',
-          slots: [
-            { nm: '明天 上午', st: 'ok', label: '余 12 号' },
-            { nm: '明天 下午', st: 'few', label: '余 3 号' },
-            { nm: '后天 上午', st: 'ok', label: '余 18 号' },
-          ],
+        medSlotsFn: (ctx) => {
+          const m = medMeta(ctx);
+          return {
+            title: `🏥 ${m.title} 号源`,
+            slots: m.slots,
+          };
         },
       },
       { bot: '您想预约哪个时段？' },
@@ -586,18 +631,21 @@ export const scenarios: Record<string, Scenario> = {
       { step: 4 },
       { bot: '请核对挂号信息 👇' },
       {
-        cardFn: (ctx) => ({
-          title: '预约挂号单',
-          status: ['ok', '已预约'],
-          rows: [
-            ['医院', '小浦镇卫生院'],
-            ['科室', '内科'],
-            ['时间', ctx.slot || '明天 上午'],
-            ['就诊人', '张大叔 138****1234'],
-          ],
-          track: ['已预约', '待就诊', '已就诊'],
-          on: 0,
-        }),
+        cardFn: (ctx) => {
+          const m = medMeta(ctx);
+          return {
+            title: '预约挂号单',
+            status: ['ok', '已预约'],
+            rows: [
+              ['医院', medHospitalName(ctx)],
+              ['科室', m.dept],
+              ['时间', ctx.slot || m.slots[0].nm],
+              ['就诊人', '张大叔 138****1234'],
+            ],
+            track: ['已预约', '待就诊', '已就诊'],
+            on: 0,
+          };
+        },
       },
       { opts: ['确认挂号', '换时段'], pick: '确认挂号', as: 'confirm' },
       {
@@ -610,23 +658,27 @@ export const scenarios: Record<string, Scenario> = {
       { label: 'submit' },
       { step: 5 },
       {
-        createOrderFn: (ctx) => ({
-          prefix: 'GH',
-          cat: 'book',
-          icon: '🏥',
-          title: '医疗挂号',
-          type: '小浦镇卫生院 · 内科',
-          status: 'ok',
-          statusText: '已预约',
-          summary: `${ctx.slot || '明天 上午'} · 带好医保卡`,
-          rows: [
-            ['医院', '小浦镇卫生院'],
-            ['科室', '内科'],
-            ['时间', ctx.slot || '明天 上午'],
-            ['就诊人', '张大叔 138****1234'],
-          ],
-          track: ['已预约', '待就诊', '已就诊'],
-        }),
+        createOrderFn: (ctx) => {
+          const m = medMeta(ctx);
+          const slot = ctx.slot || m.slots[0].nm;
+          return {
+            prefix: 'GH',
+            cat: 'book',
+            icon: '🏥',
+            title: '医疗挂号',
+            type: m.title,
+            status: 'ok',
+            statusText: '已预约',
+            summary: `${slot} · 带好医保卡`,
+            rows: [
+              ['医院', medHospitalName(ctx)],
+              ['科室', m.dept],
+              ['时间', slot],
+              ['就诊人', '张大叔 138****1234'],
+            ],
+            track: ['已预约', '待就诊', '已就诊'],
+          };
+        },
       },
       { step: 6 },
       { result: '🏥 挂号成功！请提前 15 分钟到院，带好身份证和医保卡。' },

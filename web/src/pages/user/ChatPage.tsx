@@ -263,6 +263,11 @@ export default function ChatPage() {
         await sleep(450);
         continue;
       }
+      if ('medSlotsFn' in node) {
+        append({ kind: 'med', med: node.medSlotsFn(ctx) });
+        await sleep(450);
+        continue;
+      }
       if ('medSlots' in node) {
         append({ kind: 'med', med: node.medSlots });
         await sleep(450);

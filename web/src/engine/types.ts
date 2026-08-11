@@ -69,6 +69,12 @@ export type SceneNode =
         slots: { nm: string; st: string; label: string }[];
       };
     }
+  | {
+      medSlotsFn: (ctx: Ctx) => {
+        title: string;
+        slots: { nm: string; st: string; label: string }[];
+      };
+    }
   | { createOrder: CreateOrderPayload }
   | { createOrderFn: (ctx: Ctx) => CreateOrderPayload };
 
