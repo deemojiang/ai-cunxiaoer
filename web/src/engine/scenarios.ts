@@ -534,8 +534,24 @@ export const scenarios: Record<string, Scenario> = {
           '📖 生态养殖补贴（大白话版）\n· 条件：生态散养、规模 30 只以上\n· 标准：每只 5 元，最高补 500 只\n· 您养 50 只，预计可补贴 250 元 ✅',
       },
       { bot: '需要我帮您预约村委办理吗？' },
-      { opts: ['要，帮我预约村委', '先了解材料'], pick: '要，帮我预约村委' },
+      {
+        opts: ['要，帮我预约村委', '先了解材料'],
+        pick: '要，帮我预约村委',
+        as: 'policyAction',
+      },
+      {
+        goto: (ctx) =>
+          ctx.policyAction === '先了解材料' ? 'policyMaterials' : 'policyBook',
+      },
+      { label: 'policyMaterials' },
+      {
+        result:
+          '申请生态养殖补贴一般需要：\n· 身份证\n· 养殖现场照片\n· 银行卡（发放补贴用）\n办完材料后告诉我「帮我预约村委」，我再帮您预约。',
+      },
+      { goto: 'policyEnd' },
+      { label: 'policyBook' },
       { step: 5 },
+      { bot: '好的，帮您预约村委代办员。' },
       {
         createOrder: {
           prefix: 'YY',
@@ -556,6 +572,7 @@ export const scenarios: Record<string, Scenario> = {
         },
       },
       { result: '📅 预约单已提交，村委确认时间后 AI 通知您。' },
+      { label: 'policyEnd' },
     ],
   },
 
