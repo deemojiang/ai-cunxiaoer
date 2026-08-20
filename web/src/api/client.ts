@@ -1,5 +1,12 @@
 const BASE = '/api';
 
+function redirectAdminLogin() {
+  localStorage.removeItem('admin_token');
+  if (!window.location.pathname.startsWith('/admin/login')) {
+    window.location.replace('/admin/login');
+  }
+}
+
 async function req<T>(url: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem('admin_token');
   const headers: Record<string, string> = {
@@ -10,7 +17,14 @@ async function req<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${url}`, { ...init, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || '请求失败');
+    const message = (err.error || '请求失败') as string;
+    // Login failures stay on the form; session expiry redirects to re-login.
+    const isLoginAttempt = url === '/admin/login';
+    const isAuthFailure =
+      !isLoginAttempt &&
+      (res.status === 401 || /未登录|过期/.test(message));
+    if (isAuthFailure) redirectAdminLogin();
+    throw new Error(message);
   }
   return res.json();
 }
