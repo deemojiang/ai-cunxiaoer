@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>未来乡村 AI · 村小二 — 技术框架与成本预算</title>
+<style>
+  :root {
+    --ink: #1a2230;
+    --ink-2: #4a5566;
+    --ink-3: #8a94a3;
+    --line: #e2e6ec;
+    --line-2: #cdd4de;
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --accent: #2f6bd6;
+    --accent-soft: #eaf1fc;
+    --green: #2e9e6b;
+    --amber: #c9852b;
+    --red: #cf4b4b;
+    --chip: #f0f3f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6; font-size: 14px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
+  header.hero { border-bottom: 2px solid var(--line-2); padding-bottom: 18px; margin-bottom: 8px; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: .5px; }
+  h2 { font-size: 19px; margin: 40px 0 12px; padding-left: 10px; border-left: 4px solid var(--accent); }
+  h3 { font-size: 15px; margin: 22px 0 8px; color: var(--ink); }
+  p { margin: 6px 0; color: var(--ink-2); }
+  .muted { color: var(--ink-3); font-size: 12.5px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .tag { background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; font-size: 12.5px; color: var(--ink-2); }
+
+  /* architecture layers */
+  .layer { display: flex; gap: 12px; align-items: stretch; margin-bottom: 10px; }
+  .layer .lbl {
+    width: 132px; flex-shrink: 0; padding: 10px 12px; border-radius: 8px;
+    background: #f0f3f7; border: 1px solid var(--line-2);
+  }
+  .layer.core .lbl { background: var(--accent-soft); border-color: var(--accent); }
+  .lbl .t { font-weight: 700; font-size: 13.5px; }
+  .lbl .s { font-size: 12px; color: var(--ink-3); }
+  .items { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1; }
+  .box { padding: 6px 10px; border-radius: 6px; background: var(--card); border: 1px solid var(--line); font-size: 12.5px; }
+  .layer.core .box { border-color: #bcd0f2; }
+  .arrow-note { text-align: center; color: var(--ink-3); font-size: 12px; margin: 4px 0 12px; }
+
+  /* flow */
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .flow .step { padding: 6px 12px; border-radius: 999px; background: #f0f3f7; border: 1px solid var(--line-2); font-size: 12.5px; font-weight: 500; }
+  .flow .sep { color: var(--ink-3); }
+
+  /* cards / stats */
+  .grid { display: grid; gap: 12px; }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 720px){ .g4,.g3{ grid-template-columns: repeat(2,1fr);} .layer{flex-direction:column;} .layer .lbl{width:auto;} }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .stat .v { font-size: 22px; font-weight: 700; }
+  .stat .v.info { color: var(--accent); }
+  .stat .l { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 8px 0; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); font-size: 13px; }
+  th { background: #f0f3f7; font-weight: 600; color: var(--ink); }
+  tr:last-child td { border-bottom: none; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.hl td { background: var(--accent-soft); font-weight: 600; }
+  .rec { color: var(--green); font-weight: 700; }
+
+  /* bar chart */
+  .bar-row { display: flex; align-items: center; gap: 10px; margin: 7px 0; }
+  .bar-row .name { width: 210px; flex-shrink: 0; font-size: 12.5px; color: var(--ink-2); }
+  .bar-track { flex: 1; background: #eef1f5; border-radius: 6px; height: 22px; position: relative; }
+  .bar-fill { height: 100%; border-radius: 6px; background: var(--accent); }
+  .bar-fill.green { background: var(--green); }
+  .bar-fill.amber { background: var(--amber); }
+  .bar-fill.red { background: var(--red); }
+  .bar-val { position: absolute; right: 8px; top: 0; line-height: 22px; font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  .callout { border: 1px solid var(--line); border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 8px; padding: 12px 14px; margin: 10px 0; }
+  .callout.warn { border-left-color: var(--amber); background: #fdf6ea; }
+  .callout .ct { font-weight: 700; margin-bottom: 4px; }
+  .callout ul { margin: 4px 0 0; padding-left: 18px; }
+  .callout li { font-size: 12.5px; color: var(--ink-2); margin: 2px 0; }
+  footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--line-2); color: var(--ink-3); font-size: 12px; }
+  code { background: #eef1f5; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>未来乡村 AI · 村小二 — 技术框架与成本预算</h1>
+    <p>以「对话即服务」的 AI 村小二为核心入口，覆盖咨询 / 反馈 / 交易 / 活动 / 民生等便民场景。</p>
+    <div class="meta">
+      <span class="tag">首批 20 村</span>
+      <span class="tag">注册 1 万人</span>
+      <span class="tag">日活 200（基准）</span>
+      <span class="tag">模型 GLM-5.2 / DeepSeek V4 Pro</span>
+      <span class="tag">按 1 年运维</span>
+    </div>
+  </header>
+
+  <!-- ============ 架构 ============ -->
+  <h2>一、技术架构分层图</h2>
+  <p class="muted">自上而下：接入 → 网关 → AI 编排 → 模型能力 → 业务服务 → 数据 → 后台运维（蓝色为 AI 核心链路）</p>
+
+  <div class="layer">
+    <div class="lbl"><div class="t">接入层</div><div class="s">客户端</div></div>
+    <div class="items">
+      <div class="box">微信小程序 / H5</div><div class="box">打字输入</div><div class="box">语音输入(ASR)</div>
+      <div class="box">语音播报(TTS)</div><div class="box">图片/附件上传</div><div class="box">GPS 定位</div><div class="box">适老化大字/朗读</div>
+    </div>
+  </div>
+  <div class="layer">
+    <div class="lbl"><div class="t">网关 / BFF</div><div class="s">统一入口</div></div>
+    <div class="items">
+      <div class="box">API 网关</div><div class="box">实名鉴权</div><div class="box">限流 / 防刷</div>
+      <div class="box">会话上下文管理</div><div class="box">内容安全前置</div><div class="box">多村灰度路由</div>
+    </div>
+  </div>
+  <div class="layer core">
+    <div class="lbl"><div class="t">AI 编排层</div><div class="s">村小二智能体</div></div>
+    <div class="items">
+      <div class="box">意图识别</div><div class="box">多轮对话管理</div><div class="box">六步办事状态机</div>
+      <div class="box">RAG 检索编排</div><div class="box">Function Calling</div><div class="box">Prompt/上下文装配</div>
+      <div class="box">转人工调度</div><div class="box">紧急度判断</div>
+    </div>
+  </div>
+  <div class="layer core">
+    <div class="lbl"><div class="t">AI 能力层</div><div class="s">模型与算法</div></div>
+    <div class="items">
+      <div class="box">LLM · GLM-5.2 / DeepSeek V4 Pro（可切换）</div><div class="box">Embedding 向量化</div><div class="box">向量检索</div>
+      <div class="box">ASR 语音识别</div><div class="box">TTS 语音合成</div><div class="box">图像理解</div>
+      <div class="box">内容安全审核</div><div class="box">联网搜索</div>
+    </div>
+  </div>
+  <div class="layer">
+    <div class="lbl"><div class="t">业务服务层</div><div class="s">便民服务</div></div>
+    <div class="items">
+      <div class="box">工单中心(生单/派单/进度/回访)</div><div class="box">知识库服务</div><div class="box">商城 & 上架审核</div>
+      <div class="box">活动 & 报名</div><div class="box">医疗号源</div><div class="box">礼堂预约</div><div class="box">积分体系</div><div class="box">用户档案</div>
+    </div>
+  </div>
+  <div class="layer">
+    <div class="lbl"><div class="t">数据层</div><div class="s">存储</div></div>
+    <div class="items">
+      <div class="box">业务库 MySQL</div><div class="box">向量库</div><div class="box">对象存储(图片/语音)</div>
+      <div class="box">Redis 缓存</div><div class="box">对话 / 日志审计</div>
+    </div>
+  </div>
+  <div class="layer">
+    <div class="lbl"><div class="t">管理后台</div><div class="s">运营 & 运维</div></div>
+    <div class="items">
+      <div class="box">知识库维护</div><div class="box">工单处理</div><div class="box">服务事项配置</div>
+      <div class="box">数据统计</div><div class="box">AI 对话监控</div><div class="box">人工接管</div>
+    </div>
+  </div>
+  <div class="layer">
+    <div class="lbl"><div class="t">外部集成</div><div class="s">第三方</div></div>
+    <div class="items">
+      <div class="box">卫生院号源 API</div><div class="box">EMS 快递</div><div class="box">微信缴费</div>
+      <div class="box">天气 / 搜索 API</div><div class="box">短信 / 公众号推送</div>
+    </div>
+  </div>
+
+  <!-- ============ 数据流 ============ -->
+  <h2>二、关键数据流（六步办事 + RAG）</h2>
+  <div class="flow">
+    <span class="step">用户(语音/文字/图片)</span><span class="sep">→</span>
+    <span class="step">ASR / OCR</span><span class="sep">→</span>
+    <span class="step">意图识别</span><span class="sep">→</span>
+    <span class="step">RAG 检索 · Function Calling</span><span class="sep">→</span>
+    <span class="step">LLM 生成</span><span class="sep">→</span>
+    <span class="step">生单 / 答复 / 跳转</span><span class="sep">→</span>
+    <span class="step">TTS 播报 · 消息推送</span>
+  </div>
+  <p class="muted">识别 → 确认 → 采集 → 摘要 → 生单 → 反馈；日常问答（天气/百科）直接答复不生单，紧急安全跳采集立即生单，复杂问题转人工。</p>
+
+  <!-- ============ LLM 成本 ============ -->
+  <h2>三、大模型成本预测（首批 20 村 · 1 年运维）</h2>
+  <p class="muted">仅统计对话 LLM 推理成本；ASR/TTS/图像/搜索另计（见备注）。</p>
+
+  <div class="callout">
+    <div class="ct">测算前提与口径（务必先看）</div>
+    <p style="margin:0 0 8px" class="muted">本节所有金额默认口径 = <b>首批 20 村</b>（不是全县）。<b>全县 200+ 村请按 ×10 线性放大</b>（见 3.7）。此为“对话 LLM 推理”单项成本，语音/图像/搜索另计。</p>
+    <div class="grid g4">
+      <div class="stat"><div class="v">20 个</div><div class="l">首批村庄</div></div>
+      <div class="stat"><div class="v">1 万</div><div class="l">注册用户（20 村累计）</div></div>
+      <div class="stat"><div class="v">200</div><div class="l">日活 DAU（≈2% 注册）</div></div>
+      <div class="stat"><div class="v">365 天</div><div class="l">运维周期</div></div>
+    </div>
+  </div>
+
+  <h3>3.1 高 / 中 / 低三档假设</h3>
+  <table>
+    <thead><tr><th>变量</th><th class="num">低（保守起步）</th><th class="num">中（基准）</th><th class="num">高（活跃普及）</th></tr></thead>
+    <tbody>
+      <tr><td>日活 DAU</td><td class="num">150</td><td class="num">200</td><td class="num">300</td></tr>
+      <tr><td>会话 / 人·日</td><td class="num">2</td><td class="num">3</td><td class="num">4</td></tr>
+      <tr><td>轮次 / 会话</td><td class="num">5</td><td class="num">6</td><td class="num">8</td></tr>
+      <tr><td>输入 tokens / 轮</td><td class="num">3,000</td><td class="num">4,000</td><td class="num">5,000</td></tr>
+      <tr><td>输出 tokens / 轮</td><td class="num">400</td><td class="num">500</td><td class="num">700</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.2 调用量与 Token 规模（20 村第一批）</h3>
+  <table>
+    <thead><tr><th>指标</th><th class="num">低</th><th class="num">中</th><th class="num">高</th></tr></thead>
+    <tbody>
+      <tr><td>LLM 调用 / 日</td><td class="num">1,500</td><td class="num">3,600</td><td class="num">9,600</td></tr>
+      <tr><td>LLM 调用 / 年</td><td class="num">54.75 万</td><td class="num">131.4 万</td><td class="num">350.4 万</td></tr>
+      <tr><td>年输入 tokens</td><td class="num">1,642.5 M</td><td class="num">5,256 M</td><td class="num">17,520 M</td></tr>
+      <tr><td>年输出 tokens</td><td class="num">219 M</td><td class="num">657 M</td><td class="num">2,452.8 M</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.3 模型单价（每百万 tokens，￥，2026-07 快照）</h3>
+  <table>
+    <thead><tr><th>模型</th><th class="num">输入·未命中</th><th class="num">输入·命中</th><th class="num">输出</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>DeepSeek V4 Pro（deepseek 4.0pro）</td><td class="num">¥3</td><td class="num">¥0.025</td><td class="num">¥6</td><td>api.deepseek.com 官方</td></tr>
+      <tr><td>GLM-5.2（glm5.2）</td><td class="num">¥10</td><td class="num">¥1.85</td><td class="num">¥31</td><td>Z.AI $1.4/$0.26/$4.4 折算(≈7.1)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.4 全年成本对比（中档基准 · 元/年）</h3>
+  <div>
+    <div class="bar-row"><div class="name">DeepSeek Pro · 前缀缓存40%</div><div class="bar-track"><div class="bar-fill green" style="width:18.4%"></div><span class="bar-val">¥13,455</span></div></div>
+    <div class="bar-row"><div class="name">DeepSeek Pro · 无缓存</div><div class="bar-track"><div class="bar-fill" style="width:27.0%"></div><span class="bar-val">¥19,710</span></div></div>
+    <div class="bar-row"><div class="name">GLM-5.2 · 前缀缓存40%</div><div class="bar-track"><div class="bar-fill amber" style="width:76.5%"></div><span class="bar-val">¥55,792</span></div></div>
+    <div class="bar-row"><div class="name">GLM-5.2 · 无缓存</div><div class="bar-track"><div class="bar-fill red" style="width:100%"></div><span class="bar-val">¥72,927</span></div></div>
+  </div>
+  <p class="muted">口径：首批 20 村、DAU 200 · 前缀缓存按稳定系统提示+知识前缀命中 40% 输入估算 · 来源：厂商 2026-07 价</p>
+
+  <h3>3.5 三档 × 双模型全年成本（首批 20 村 · 元/年，无缓存 / 前缀缓存40%）</h3>
+  <table>
+    <thead><tr><th>模型</th><th class="num">低</th><th class="num">中</th><th class="num">高</th></tr></thead>
+    <tbody>
+      <tr class="hl"><td>DeepSeek V4 Pro</td><td class="num">¥6,242 / ¥4,287</td><td class="num">¥19,710 / ¥13,455</td><td class="num">¥67,277 / ¥46,428</td></tr>
+      <tr><td>GLM-5.2</td><td class="num">¥23,214 / ¥17,859</td><td class="num">¥72,927 / ¥55,792</td><td class="num">¥251,237 / ¥194,122</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.6 单位经济（首批 20 村 · DeepSeek V4 Pro · 中档无缓存）</h3>
+  <div class="grid g4">
+    <div class="stat"><div class="v info">¥54</div><div class="l">日均成本（20 村合计）</div></div>
+    <div class="stat"><div class="v info">¥986</div><div class="l">每村 · 年</div></div>
+    <div class="stat"><div class="v info">¥0.090</div><div class="l">每次会话</div></div>
+    <div class="stat"><div class="v info">¥0.015</div><div class="l">每次调用</div></div>
+  </div>
+
+  <div class="callout warn">
+    <div class="ct">为什么每村只要 ¥986？（拆解验证，非笔误）</div>
+    <p style="margin:0 0 6px" class="muted">这是三件事叠加的直接结果，非计算错误：① DeepSeek 单价极低（¥3/¥6 每百万 tok）；② <b>日活仅 200</b>（1 万注册里约 2%）；③ 每轮输入 4,000 tok。逐层验证：</p>
+    <ul>
+      <li>每日活/天：3 会话 × 6 轮 = 18 次调用 → 输入 72,000 tok、输出 9,000 tok</li>
+      <li>每日活/天成本 = 72,000/1M×¥3 + 9,000/1M×¥6 = ¥0.216 + ¥0.054 = <b>¥0.27/人·天</b></li>
+      <li>200 DAU × 365 天 × ¥0.27 ≈ <b>¥19,710/年（20 村）</b> ÷ 20 = <b>¥986/村</b></li>
+    </ul>
+    <p style="margin:6px 0 0" class="muted">敏感度：换 GLM-5.2 约 ¥3,646/村；若 RAG 上下文更重（高档 5,000 tok/轮 + 更高日活），DeepSeek 升到约 ¥3,364/村。真正的成本杠杆是<b>日活规模</b>与<b>每轮上下文长度</b>。</p>
+  </div>
+
+  <h3>3.7 全县 200+ 村推算（口径对照）</h3>
+  <div class="callout">
+    <div class="ct">20 村 → 全县（×10 线性放大）</div>
+    <p style="margin:0" class="muted"><b>注意区分范围：</b>“¥19.7 万/年”是<b>全县 200+ 村</b>（DAU≈2,000），不是 20 村；20 村是 ¥1.97 万/年。二者单位经济相同，仅规模差 10 倍。<br/>中档全县：DeepSeek V4 Pro ≈ <b>¥19.7 万/年</b>，GLM-5.2 ≈ <b>¥72.9 万/年</b>；前缀缓存后约 ¥13.5 万 / ¥55.8 万。高档分别约 ¥67 万 / ¥251 万。</p>
+  </div>
+
+  <!-- ============ 分阶段基础设施 ============ -->
+  <h2>四、分阶段基础设施部署预算（前 / 中 / 后期）</h2>
+  <p class="muted">硬件按 3 年直线折旧计入年化预算。前期纯 API → 中期自建单机(并发已提至 5×，100-250)+API → 后期 GPU 集群。</p>
+
+  <div class="callout">
+    <div class="ct">API 预算口径说明（为何和“纯 API 版”差很多）</div>
+    <p style="margin:0" class="muted">下表中/后期的“商业 LLM API”是<b>自建扛主力推理后的残余调用</b>（兜底/灾备/尝鲜），非全量走 API。若全量走 API：20 村 ≈¥2 万/年、全县 ×10 ≈¥19.7 万/年（第三章）——与前期 API ¥2 万一致；中/后期迁到本地后才降到 ¥1 万 / ¥3 万。两者口径不同，非计算错误。</p>
+  </div>
+
+  <h3>4.1 三阶段定位</h3>
+  <table>
+    <thead><tr><th>阶段</th><th>部署形态</th><th>并发目标</th><th>适用规模</th><th>驱动因素</th></tr></thead>
+    <tbody>
+      <tr><td><b>前期</b></td><td>纯商业模型 API</td><td>按量弹性</td><td>首批 20 村、低-中日活</td><td>零 capex、快速上线</td></tr>
+      <tr><td><b>中期</b></td><td>自建 GPU 单机 + 商业 API 兜底</td><td>100–250（5×）</td><td>数千日活</td><td>数据合规、高频本地化</td></tr>
+      <tr><td><b>后期</b></td><td>GPU 集群 + 商业 API 灾备</td><td>数百+</td><td>全县 200+ 村</td><td>规模化、高可用</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4.2 并发测算模型（价格能否扛这些并发）</h3>
+  <table>
+    <thead><tr><th>参数</th><th class="num">取值</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>单卡聚合解码吞吐</td><td class="num">~1,500 tok/s</td><td>H20/A100-80G 跑 ~30B + vLLM，保守值</td></tr>
+      <tr><td>单用户解码速率</td><td class="num">~25 tok/s</td><td>阅读/播报够用</td></tr>
+      <tr><td>解码上限并发</td><td class="num">≈ 60 / 卡</td><td>= 1,500 ÷ 25</td></tr>
+      <tr class="hl"><td>扣 RAG prefill + TTFT 后</td><td class="num">~25–35 / 卡</td><td>prefill 抢算力，需降额</td></tr>
+    </tbody>
+  </table>
+  <p class="muted">结论：2× H20 ≈ 50–70 可持续并发，“并发 20–50”没低估。价格已按 2026 行情<b>上修</b>：H20 96G 单卡 ¥10–14 万，2 卡 + 整机 ≈ ¥30–42 万（此前 ¥20–30 万偏低、确实买不到）。</p>
+
+  <div class="callout">
+    <div class="ct">卡型更新（2026）</div>
+    <p style="margin:0" class="muted">消费级旗舰已是 <b>RTX 5090（32G GDDR7）</b>，此前的 4090 已过时；但 5090 单卡 32G 低于旧“4090 48G 改”，大模型需更多卡。数据中心侧 H20 96G 仍是中国合规主力（后续特供 Blackwell 如 B30 系列）。政府/乡村项目常要求<b>信创国产化</b>，建议同时评估<b>华为昇腾 910B/910C</b>。</p>
+  </div>
+
+  <h3>4.3 中期硬件选型 · 基础规格（并发 20–50）三选一</h3>
+  <table>
+    <thead><tr><th>方案</th><th>配置</th><th class="num">capex</th><th class="num">折旧/年</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>A · 消费级(试点)</td><td>4× RTX 5090 32G + 整机</td><td class="num">¥16–24 万</td><td class="num">≈ ¥6.7 万</td><td>性价比高；无 ECC/散热受限，宜试点</td></tr>
+      <tr class="hl"><td>B · 数据中心(推荐)</td><td>2× H20 96G（或特供 Blackwell）+ 整机</td><td class="num">¥30–42 万</td><td class="num">≈ ¥12 万</td><td>显存大、稳定，生产首选</td></tr>
+      <tr><td>C · 国产信创</td><td>2–4× 昇腾 910B/910C + 整机</td><td class="num">¥28–45 万</td><td class="num">≈ ¥12 万</td><td>满足国产化/等保，需评估适配</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4.3.1 5× 扩容规格（并发 100–250）</h3>
+  <table>
+    <thead><tr><th>配置</th><th class="num">capex</th><th class="num">折旧/年</th></tr></thead>
+    <tbody>
+      <tr class="hl"><td>单节点 8× H20 96G（NVLink）+ 双路CPU/1TB内存/NVMe</td><td class="num">¥110–160 万（中 ¥130 万）</td><td class="num">≈ ¥43.3 万</td></tr>
+      <tr><td>经济替代：8× RTX 5090 32G + 整机</td><td class="num">¥30–45 万</td><td class="num">≈ ¥12 万</td></tr>
+    </tbody>
+  </table>
+  <p class="muted">并发≈线性于算力：5× 需 ~4–5× GPU。8 卡整机（8-GPU 机箱/双路 CPU/万兆网络/冗余电源）本身 ¥25–45 万，加 8× H20 ¥80–112 万，取中 ¥130 万；250 上限建议 10–12 卡或双节点。</p>
+
+  <h3>4.4 各阶段年化预算明细（万元 · 中期按 5× 扩容口径 · 2026 上修价）</h3>
+  <table>
+    <thead><tr><th>成本项</th><th class="num">前期(纯API)</th><th class="num">中期(5×)</th><th class="num">后期(集群)</th></tr></thead>
+    <tbody>
+      <tr><td>硬件折旧（capex/3年）</td><td class="num">0</td><td class="num">43.3</td><td class="num">83.3</td></tr>
+      <tr><td>商业 LLM API（残余）</td><td class="num">2</td><td class="num">1</td><td class="num">3</td></tr>
+      <tr><td>语音/图像/搜索 API</td><td class="num">1</td><td class="num">0.5</td><td class="num">0.5</td></tr>
+      <tr><td>电费</td><td class="num">0</td><td class="num">4.5</td><td class="num">21</td></tr>
+      <tr><td>机房/托管/带宽/散热</td><td class="num">0</td><td class="num">3</td><td class="num">15</td></tr>
+      <tr><td>运维人力（分摊）</td><td class="num">0.5</td><td class="num">4</td><td class="num">25–40</td></tr>
+      <tr class="hl"><td>年化合计（含折旧）</td><td class="num">≈ 3.5</td><td class="num">≈ 56</td><td class="num">≈ 153</td></tr>
+      <tr><td>首年现金（含 capex）</td><td class="num">≈ 3.5</td><td class="num">≈ 143</td><td class="num">≈ 320</td></tr>
+    </tbody>
+  </table>
+  <p class="muted">中期<b>基础规格（并发 20–50，数据中心方案 B）</b>年化约 ¥20 万/年、首年现金约 ¥43 万，可按并发需求在“基础/5×”间取舍。capex/运维随卡型/机房/是否信创浮动，招采前以实时报价为准。</p>
+
+  <div class="callout">
+    <div class="ct">首批 20 村推荐档位</div>
+    <p style="margin:0" class="muted">DAU 200、峰值并发大概率个位数到十几，<b>建议前期纯商业 API 起步（≈¥3.5 万/年）</b>；若因数据合规必须本地化，用<b>基础规格方案 A（4× 5090，≈¥20 万/年内）</b>试点即可。5×/集群是数千日活与全县铺开后的<b>扩容预案</b>，首批不必投。</p>
+  </div>
+
+  <h3>4.5 年化预算对比（万元/年，含折旧）</h3>
+  <div>
+    <div class="bar-row"><div class="name">前期 · 纯商业 API</div><div class="bar-track"><div class="bar-fill green" style="width:2.3%"></div><span class="bar-val">¥3.5 万</span></div></div>
+    <div class="bar-row"><div class="name">中期 · 单机+API（5×）</div><div class="bar-track"><div class="bar-fill" style="width:36.6%"></div><span class="bar-val">¥56 万</span></div></div>
+    <div class="bar-row"><div class="name">后期 · GPU 集群</div><div class="bar-track"><div class="bar-fill amber" style="width:100%"></div><span class="bar-val">¥153 万</span></div></div>
+  </div>
+  <p class="muted">电费口径：中期 5× 单节点 ~6.6kW（含散热）、集群 ~30kW，24×365、¥0.8/kWh。价格为 2026 规划区间，招采前以实时报价为准。</p>
+
+  <div class="callout warn">
+    <div class="ct">何时该自建（盈亏平衡逻辑）</div>
+    <ul>
+      <li><b>纯省钱不成立</b>：前期 API（20 村中档）仅 ≈¥2 万/年，远低于自建单机（基础 ≈¥20 万、5× ≈¥56 万）。</li>
+      <li><b>自建真正驱动</b>：数据合规与出域可控、峰值并发保障、规模化后边际成本、信创国产化。</li>
+      <li><b>平衡点</b>：全县高活跃时（全量走 API：DeepSeek 高档 ≈¥67 万、GLM ≈¥251 万），本地集群（≈¥153 万/年）在成本与自主可控上占优；中期单机是合规与过渡折中，并发按需在基础/5× 间取舍。</li>
+    </ul>
+  </div>
+
+  <!-- ============ 备注 ============ -->
+  <h2>五、测算备注与风险</h2>
+  <div class="callout warn">
+    <ul>
+      <li>仅含对话 LLM 推理；Embedding 向量化 &lt; ¥500/年已忽略；ASR/TTS/图像/搜索按调用另计。</li>
+      <li>成本与 DAU、会话数、每轮上下文长度近似线性；RAG 注入上下文越长，输入成本越高。</li>
+      <li>GLM-5.2 采用 Z.AI 折算价，国内 bigmodel 实际费率可能不同；DeepSeek 为官方直采价；最终以签约价为准。</li>
+      <li>价格为 2026-07 快照，模型厂商调价频繁，上线前请复核实时费率。</li>
+      <li>GPU 卡型 2026 口径：消费级 RTX 5090（32G）、数据中心 H20 96G（或特供 Blackwell）、信创评估昇腾 910B/910C；capex/运维随卡型、机房、人力、是否国产化浮动，为规划区间，招采前须以实时报价为准。</li>
+    </ul>
+  </div>
+
+  <footer>
+    未来乡村 AI 版 · 技术框架与成本预算 &nbsp;|&nbsp; 版本 v1.4（第三章补测算前提/范围、加每村成本拆解验证与 20村↔全县口径对照） &nbsp;|&nbsp; 编制 2026-07-09 &nbsp;|&nbsp;
+    配套：《便民服务需求清单》《技术框架》《大模型成本预测》 &nbsp;|&nbsp; 交互版 canvas：future-village-ai-arch-cost.canvas.tsx
+  </footer>
+
+</div>
+</body>
+</html>

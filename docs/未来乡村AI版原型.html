@@ -1,0 +1,1827 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 村小二 · 原型交互</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root{
+    --green:#2e9e5b; --green-d:#1f7a44; --green-l:#e8f6ee;
+    --bg:#f0f2f5; --bubble-bot:#ffffff; --bubble-user:#95ec69;
+    --ink:#1a1a1a; --muted:#8a8a8a; --line:#e6e6e6;
+  }
+  body{
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:linear-gradient(135deg,#243b2e 0%,#0f1d15 100%);
+    min-height:100vh; color:var(--ink);
+    display:flex; justify-content:center; align-items:flex-start;
+    gap:28px; padding:28px 16px; flex-wrap:wrap;
+  }
+
+  /* ============ 左侧说明面板 ============ */
+  .side{
+    width:300px; color:#dfeee5; position:sticky; top:28px;
+  }
+  .side h1{ font-size:22px; margin-bottom:6px; color:#fff; }
+  .side .sub{ font-size:13px; color:#9fc4ad; margin-bottom:22px; }
+  .side .sec-title{ font-size:13px; color:#7fb894; margin:18px 0 8px; letter-spacing:1px; }
+  .side .dir-tree{
+    background:rgba(0,0,0,.28); border:1px solid rgba(255,255,255,.1);
+    border-radius:10px; padding:10px 12px; font-size:11px; line-height:1.55;
+    color:#b8d4c4; font-family:ui-monospace,Consolas,"Courier New",monospace;
+    white-space:pre; overflow-x:auto; max-height:280px; overflow-y:auto;
+  }
+  .flow-legend{ display:flex; flex-direction:column; gap:8px; }
+  .flow-legend .st{
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08);
+    border-radius:10px; padding:10px 12px; font-size:13px; display:flex; gap:10px; align-items:center;
+  }
+  .flow-legend .st b{ color:#8fe3ac; }
+  .scn-list{ display:flex; flex-direction:column; gap:6px; }
+  .scn-list .item{
+    font-size:13px; padding:8px 12px; border-radius:8px; cursor:pointer;
+    background:rgba(255,255,255,.05); border:1px solid transparent; transition:.15s;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .scn-list .item:hover{ background:rgba(143,227,172,.15); border-color:rgba(143,227,172,.3); }
+  .scn-list .item .tag{ font-size:11px; color:#9fc4ad; }
+
+  /* ============ 手机 ============ */
+  .phone{
+    width:390px; height:800px; background:#000; border-radius:44px;
+    padding:12px; box-shadow:0 30px 80px rgba(0,0,0,.5); flex-shrink:0;
+  }
+  .screen{
+    width:100%; height:100%; background:var(--bg); border-radius:34px;
+    overflow:hidden; display:flex; flex-direction:column; position:relative;
+  }
+  /* 状态栏 */
+  .statusbar{
+    height:44px; background:var(--green); color:#fff; display:flex;
+    align-items:center; justify-content:space-between; padding:0 16px; font-size:13px; flex-shrink:0;
+  }
+  .statusbar .status-doc{
+    font-size:12px; background:rgba(255,255,255,.22); padding:5px 10px; border-radius:14px;
+    cursor:pointer; transition:.15s; white-space:nowrap;
+  }
+  .statusbar .status-doc:hover{ background:rgba(255,255,255,.35); }
+  .statusbar .status-doc:active{ transform:scale(.96); }
+  .statusbar .status-right{ display:flex; align-items:center; gap:10px; font-size:12px; opacity:.95; }
+  .notch{ display:none; }
+  /* 导航栏 */
+  .navbar{
+    background:var(--green); color:#fff; padding:8px 16px 12px; flex-shrink:0;
+    display:flex; align-items:center; gap:10px; box-shadow:0 2px 8px rgba(0,0,0,.1);
+  }
+  .navbar .back-btn{
+    width:32px; height:32px; border-radius:50%; background:rgba(255,255,255,.22); flex-shrink:0;
+    display:none; align-items:center; justify-content:center; font-size:24px; line-height:1;
+    cursor:pointer; transition:.15s; font-weight:300; padding-bottom:2px;
+  }
+  .navbar .back-btn.show{ display:flex; }
+  .navbar .back-btn:active{ transform:scale(.92); background:rgba(255,255,255,.35); }
+  .navbar .avatar{ width:38px; height:38px; border-radius:10px; background:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; }
+  .navbar .tt{ flex:1; }
+  .navbar .tt .n{ font-size:16px; font-weight:600; }
+  .navbar .tt .s{ font-size:11px; opacity:.85; display:flex; align-items:center; gap:4px; }
+  .dot-online{ width:6px; height:6px; border-radius:50%; background:#7dff9e; display:inline-block; }
+  .navbar .reset{ font-size:12px; background:rgba(255,255,255,.2); padding:6px 10px; border-radius:16px; cursor:pointer; white-space:nowrap; }
+  .navbar .nav-actions{ display:flex; gap:6px; flex-shrink:0; }
+  .navbar .reset.my-btn{ background:rgba(255,255,255,.28); }
+  .navbar .reset:active{ transform:scale(.95); }
+
+  /* 六步流程指示器 */
+  .stepper{
+    background:#fff; border-bottom:1px solid var(--line); padding:10px 8px;
+    display:flex; justify-content:space-between; flex-shrink:0; overflow-x:auto;
+  }
+  .stepper .step{ flex:1; min-width:52px; text-align:center; position:relative; }
+  .stepper .step .circle{
+    width:22px; height:22px; border-radius:50%; margin:0 auto 4px; background:#e3e3e3; color:#fff;
+    font-size:11px; display:flex; align-items:center; justify-content:center; font-weight:600; transition:.3s;
+  }
+  .stepper .step .lbl{ font-size:9px; color:var(--muted); transition:.3s; white-space:nowrap; }
+  .stepper .step:not(:last-child)::after{
+    content:''; position:absolute; top:11px; left:calc(50% + 14px); right:calc(-50% + 14px);
+    height:2px; background:#e3e3e3; transition:.3s;
+  }
+  .stepper .step.active .circle{ background:var(--green); transform:scale(1.12); box-shadow:0 2px 6px rgba(46,158,91,.4); }
+  .stepper .step.active .lbl{ color:var(--green); font-weight:600; }
+  .stepper .step.done .circle{ background:var(--green-d); }
+  .stepper .step.done::after{ background:var(--green-d); }
+
+  /* 聊天区 */
+  .chat{ flex:1; overflow-y:auto; padding:16px 12px 20px; scroll-behavior:smooth; }
+  .chat::-webkit-scrollbar{ width:0; }
+  .time-tip{ text-align:center; font-size:11px; color:#b0b0b0; margin:8px 0 14px; }
+
+  .msg{ display:flex; gap:8px; margin-bottom:14px; align-items:flex-start; animation:pop .3s ease; }
+  @keyframes pop{ from{ opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
+  .msg .av{ width:36px; height:36px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:20px; }
+  .msg.bot .av{ background:var(--green); }
+  .msg.user{ flex-direction:row-reverse; }
+  .msg.user .av{ background:#576b95; }
+  .bubble{
+    max-width:74%; padding:10px 13px; border-radius:14px; font-size:14.5px; line-height:1.55;
+    position:relative; word-break:break-word; white-space:pre-wrap;
+  }
+  .msg.bot .bubble{ background:var(--bubble-bot); border-top-left-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+  .msg.user .bubble{ background:var(--bubble-user); border-top-right-radius:4px; }
+
+  /* 选项按钮 */
+  .options{ display:flex; flex-wrap:wrap; gap:8px; margin:2px 0 14px 44px; animation:pop .3s ease; }
+  .options .opt{
+    background:#fff; border:1px solid var(--green); color:var(--green-d); font-size:13px;
+    padding:8px 14px; border-radius:18px; cursor:pointer; transition:.15s; font-weight:500;
+  }
+  .options .opt:hover{ background:var(--green); color:#fff; }
+  .options .opt:active{ transform:scale(.96); }
+
+  /* 图片气泡 */
+  .img-bubble{ position:relative; width:150px; height:110px; border-radius:12px; overflow:hidden; background:linear-gradient(135deg,#c9d6c0,#9fb894); display:flex; align-items:center; justify-content:center; color:#4a5a42; font-size:30px; box-shadow:0 1px 3px rgba(0,0,0,.1);}
+  .img-bubble img{ width:100%; height:100%; object-fit:cover; }
+  .img-bubble small{ position:absolute; bottom:6px; font-size:10px; background:rgba(0,0,0,.4); color:#fff; padding:1px 6px; border-radius:8px; }
+
+  /* 工单卡片 */
+  .card{
+    max-width:88%; background:#fff; border-radius:14px; margin:2px 0 14px 44px; overflow:hidden;
+    box-shadow:0 3px 12px rgba(0,0,0,.1); animation:pop .35s ease; border:1px solid var(--line);
+  }
+  .card .card-h{ background:linear-gradient(135deg,var(--green),var(--green-d)); color:#fff; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; }
+  .card .card-h .t{ font-size:14px; font-weight:600; }
+  .card .card-h .no{ font-size:11px; opacity:.9; }
+  .card .card-b{ padding:12px 14px; font-size:13px; }
+  .card .row{ display:flex; margin-bottom:7px; }
+  .card .row .k{ color:var(--muted); width:60px; flex-shrink:0; }
+  .card .row .v{ flex:1; color:var(--ink); }
+  .badge{ display:inline-block; font-size:11px; padding:2px 9px; border-radius:10px; font-weight:600; }
+  .badge.wait{ background:#fff4e0; color:#d98a00; }
+  .badge.doing{ background:#e0efff; color:#2478d9; }
+  .badge.ok{ background:var(--green-l); color:var(--green-d); }
+  .card .track{ border-top:1px dashed var(--line); padding:10px 14px; display:flex; justify-content:space-between; }
+  .card .track .ts{ text-align:center; flex:1; font-size:10px; color:var(--muted); position:relative; }
+  .card .track .ts .d{ width:9px; height:9px; border-radius:50%; background:#ddd; margin:0 auto 4px; }
+  .card .track .ts.on .d{ background:var(--green); box-shadow:0 0 0 3px var(--green-l); }
+  .card .track .ts.on{ color:var(--green-d); font-weight:600; }
+
+  /* 档期查询卡 */
+  .avail-card{
+    max-width:88%; margin:2px 0 14px 44px; background:#fff; border-radius:14px; overflow:hidden;
+    box-shadow:0 3px 12px rgba(0,0,0,.08); animation:pop .35s ease; border:1px solid var(--line);
+  }
+  .avail-card .ac-h{ background:#f7faf8; padding:10px 14px; font-size:13px; font-weight:600; color:var(--green-d); border-bottom:1px solid var(--line); }
+  .avail-card .ac-b{ padding:10px 14px; font-size:12.5px; }
+  .avail-card .slot{ display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px dashed #eee; }
+  .avail-card .slot:last-child{ border-bottom:none; }
+  .avail-card .slot .nm{ color:#444; }
+  .avail-card .slot .st{ font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; }
+  .avail-card .slot .st.ok{ background:var(--green-l); color:var(--green-d); }
+  .avail-card .slot .st.busy{ background:#fff0f0; color:#c0392b; }
+  .avail-card .slot .st.warn{ background:#fff4e0; color:#d98a00; }
+
+  /* 菜单推荐卡 */
+  .menu-card{
+    max-width:88%; margin:2px 0 14px 44px; background:#fff; border-radius:14px; overflow:hidden;
+    box-shadow:0 3px 12px rgba(0,0,0,.08); animation:pop .35s ease; border:1px solid var(--line);
+  }
+  .menu-card .mc-h{ background:linear-gradient(135deg,#c0392b,#e74c3c); color:#fff; padding:11px 14px; font-size:13px; font-weight:600; }
+  .menu-card .mc-h.white{ background:linear-gradient(135deg,#5d6d7e,#7f8c8d); }
+  .menu-card .mc-b{ padding:12px 14px; font-size:12.5px; line-height:1.65; }
+  .menu-card .mc-b .cat{ font-weight:600; color:#555; margin:8px 0 4px; }
+  .menu-card .mc-b .cat:first-child{ margin-top:0; }
+  .menu-card .mc-b .items{ color:#333; }
+  .menu-card .mc-tip{ background:#fafafa; border-top:1px dashed var(--line); padding:8px 14px; font-size:11.5px; color:var(--muted); }
+
+  /* 村务公开 / 信息面板 */
+  .info-panel{
+    max-width:88%; margin:2px 0 14px 44px; background:#fff; border-radius:14px; overflow:hidden;
+    box-shadow:0 3px 12px rgba(0,0,0,.08); border:1px solid var(--line); animation:pop .35s ease;
+  }
+  .info-panel .ip-h{ background:linear-gradient(135deg,#2c5f4a,#3d7a5a); color:#fff; padding:12px 14px; }
+  .info-panel .ip-h .t{ font-size:14px; font-weight:600; }
+  .info-panel .ip-h .s{ font-size:11px; opacity:.88; margin-top:3px; }
+  .info-panel .ip-b{ padding:12px 14px; font-size:12.5px; line-height:1.6; }
+  .info-panel .cadre{ display:flex; gap:10px; padding:8px 0; border-bottom:1px dashed #eee; align-items:center; }
+  .info-panel .cadre:last-child{ border-bottom:none; }
+  .info-panel .cadre .av{ width:40px; height:40px; border-radius:50%; background:var(--green-l); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+  .info-panel .cadre .info .n{ font-weight:600; color:#333; font-size:13px; }
+  .info-panel .cadre .info .r{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .info-panel .comm{ background:#f8faf9; border-radius:8px; padding:8px 10px; margin-bottom:6px; font-size:12px; }
+  .info-panel .comm b{ color:var(--green-d); }
+
+  /* 医疗挂号时段 */
+  .med-slots{
+    max-width:88%; margin:2px 0 14px 44px; background:#fff; border-radius:14px; overflow:hidden;
+    box-shadow:0 3px 12px rgba(0,0,0,.08); border:1px solid var(--line); animation:pop .35s ease;
+  }
+  .med-slots .ms-h{ background:linear-gradient(135deg,#2980b9,#3498db); color:#fff; padding:11px 14px; font-size:13px; font-weight:600; }
+  .med-slots .ms-b{ padding:10px 14px; }
+  .med-slots .slot-row{ display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px dashed #eee; font-size:12.5px; }
+  .med-slots .slot-row:last-child{ border-bottom:none; }
+  .med-slots .slot-row .st{ font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; }
+  .med-slots .slot-row .st.ok{ background:#e8f6ee; color:var(--green-d); }
+  .med-slots .slot-row .st.few{ background:#fff4e0; color:#d98a00; }
+
+  /* 结果/提示条 */
+  .result-tip{ max-width:88%; background:var(--green-l); color:var(--green-d); font-size:12.5px; border-radius:10px; padding:8px 12px; margin:0 0 14px 44px; border-left:3px solid var(--green); line-height:1.5;}
+
+  /* 通用问答 / 联网答案 气泡 */
+  .msg.bot .bubble .src{
+    display:block; margin-top:8px; padding-top:7px; border-top:1px dashed #e3e3e3;
+    font-size:11px; color:#a0a0a0;
+  }
+  .msg.bot .bubble .kb-title{ font-weight:600; color:var(--green-d); margin-bottom:5px; display:flex; align-items:center; gap:5px; }
+  /* 天气卡 */
+  .weather-card{
+    max-width:86%; margin:2px 0 14px 44px; border-radius:16px; overflow:hidden; animation:pop .35s ease;
+    background:linear-gradient(135deg,#4a9fe0,#6fb6e8); color:#fff; box-shadow:0 4px 14px rgba(74,159,224,.35);
+  }
+  .weather-card .wc-h{ padding:14px 16px 8px; display:flex; justify-content:space-between; align-items:flex-start; }
+  .weather-card .wc-h .loc{ font-size:14px; font-weight:600; } 
+  .weather-card .wc-h .date{ font-size:11px; opacity:.85; }
+  .weather-card .wc-h .ic{ font-size:38px; line-height:1; }
+  .weather-card .wc-temp{ padding:0 16px 8px; font-size:30px; font-weight:700; }
+  .weather-card .wc-temp small{ font-size:14px; font-weight:400; opacity:.9; margin-left:6px; }
+  .weather-card .wc-meta{ padding:0 16px 12px; font-size:12px; opacity:.95; display:flex; gap:14px; flex-wrap:wrap; }
+  .weather-card .wc-tip{ background:rgba(255,255,255,.18); padding:9px 16px; font-size:12px; display:flex; gap:6px; align-items:center; }
+  .weather-card .wc-src{ background:rgba(0,0,0,.12); padding:6px 16px; font-size:10.5px; opacity:.85; }
+  /* 搜索中 */
+  .searching{ font-size:12px; color:var(--muted); margin:0 0 14px 44px; display:flex; gap:6px; align-items:center; }
+  .searching .spin{ width:12px; height:12px; border:2px solid #ddd; border-top-color:var(--green); border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+
+  /* typing */
+  .typing .bubble{ padding:12px 14px; }
+  .typing .dots{ display:flex; gap:4px; }
+  .typing .dots i{ width:7px; height:7px; border-radius:50%; background:#bbb; animation:blink 1.2s infinite; }
+  .typing .dots i:nth-child(2){ animation-delay:.2s; } .typing .dots i:nth-child(3){ animation-delay:.4s; }
+  @keyframes blink{ 0%,60%,100%{opacity:.3; transform:translateY(0);} 30%{opacity:1; transform:translateY(-3px);} }
+
+  /* 欢迎页服务网格 */
+  .welcome{ padding:4px 4px 10px; }
+  .welcome .hi{
+    background:#fff; border-radius:14px; padding:14px; font-size:14.5px; line-height:1.6;
+    box-shadow:0 1px 2px rgba(0,0,0,.05); margin-bottom:14px; border-top-left-radius:4px;
+    display:flex; gap:8px;
+  }
+  .grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .grid.home-grid{ margin-bottom:4px; }
+  .grid.all-grid{ margin-bottom:4px; }
+  .grid .g{
+    background:#fff; border-radius:12px; padding:12px 4px; text-align:center; cursor:pointer;
+    transition:.15s; box-shadow:0 1px 3px rgba(0,0,0,.05);
+  }
+  .grid .g.more{ background:var(--green-l); border:1px dashed var(--green); }
+  .grid .g.more .ic{ color:var(--green-d); }
+  .grid .g.more .nm{ color:var(--green-d); font-weight:600; }
+  .grid .g:hover{ transform:translateY(-3px); box-shadow:0 6px 14px rgba(46,158,91,.18); }
+  .grid .g .ic{ font-size:26px; display:block; margin-bottom:5px; }
+  .grid .g .nm{ font-size:11.5px; color:#444; }
+  .ask-hi{ margin:16px 2px 10px; font-size:12.5px; color:#5a6b60; line-height:1.5;
+    background:rgba(255,255,255,.6); border-radius:10px; padding:9px 12px; border-left:3px solid var(--green); }
+
+  /* 底部输入栏 */
+  .inputbar{
+    background:#f7f7f7; border-top:1px solid var(--line); padding:9px 10px; display:flex;
+    gap:8px; align-items:center; flex-shrink:0;
+  }
+  .inputbar .mic,.inputbar .attach{
+    width:36px; height:36px; border-radius:50%; background:#fff; border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; transition:.15s; flex-shrink:0;
+  }
+  .inputbar .mic:hover,.inputbar .attach:hover{ background:var(--green-l); border-color:var(--green); }
+  .inputbar .mic:active,.inputbar .attach:active{ transform:scale(.92); }
+  .inputbar .mic.rec{ background:var(--green); color:#fff; animation:pulse 1s infinite; }
+  @keyframes pulse{ 0%,100%{box-shadow:0 0 0 0 rgba(46,158,91,.5);} 50%{box-shadow:0 0 0 6px rgba(46,158,91,0);} }
+  .inputbar .fld{
+    flex:1; min-width:0; background:#fff; border-radius:18px; padding:10px 14px; font-size:14px;
+    color:#333; border:1px solid var(--line); outline:none; transition:.15s;
+  }
+  .inputbar .fld:focus{ border-color:var(--green); }
+  .inputbar .fld::placeholder{ color:#b3b3b3; }
+  .inputbar .send{
+    width:36px; height:36px; border-radius:50%; background:var(--green); color:#fff; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:17px; cursor:pointer; transition:.15s;
+  }
+  .inputbar .send:hover{ background:var(--green-d); }
+  .inputbar .send:active{ transform:scale(.92); }
+
+  /* 语音聆听浮层 */
+  .listen{ position:absolute; inset:0; background:rgba(0,0,0,.4); display:none;
+    align-items:center; justify-content:center; z-index:40; }
+  .listen.show{ display:flex; }
+  .listen .box{ background:var(--green); color:#fff; padding:24px 34px; border-radius:22px;
+    display:flex; flex-direction:column; align-items:center; gap:12px; box-shadow:0 12px 36px rgba(0,0,0,.35); }
+  .wave{ display:flex; gap:4px; align-items:center; height:42px; }
+  .wave i{ width:5px; height:12px; background:#fff; border-radius:3px; animation:wv .9s infinite ease-in-out; }
+  .wave i:nth-child(2){ animation-delay:.1s } .wave i:nth-child(3){ animation-delay:.2s }
+  .wave i:nth-child(4){ animation-delay:.3s } .wave i:nth-child(5){ animation-delay:.2s }
+  .wave i:nth-child(6){ animation-delay:.1s }
+  @keyframes wv{ 0%,100%{height:10px;opacity:.6} 50%{height:36px;opacity:1} }
+
+  .hint-pill{
+    position:absolute; bottom:70px; left:50%; transform:translateX(-50%);
+    background:rgba(0,0,0,.72); color:#fff; font-size:12px; padding:7px 16px; border-radius:20px;
+    opacity:0; transition:.3s; pointer-events:none; z-index:30; white-space:nowrap;
+  }
+  .hint-pill.show{ opacity:1; }
+
+  /* ============ 我的 · 工单列表 ============ */
+  .my-page{ padding:0 2px 20px; animation:pop .3s ease; min-height:100%; background:var(--bg); }
+  .chat.my-view{ background:var(--bg); }
+  .my-header{
+    background:linear-gradient(135deg,var(--green),var(--green-d)); color:#fff; border-radius:16px;
+    padding:16px; display:flex; gap:12px; align-items:center; margin-bottom:14px; box-shadow:0 4px 14px rgba(46,158,91,.25);
+  }
+  .my-header .uav{ width:50px; height:50px; border-radius:50%; background:rgba(255,255,255,.25); display:flex; align-items:center; justify-content:center; font-size:26px; }
+  .my-header .uinfo .name{ font-size:17px; font-weight:600; }
+  .my-header .uinfo .u-tel{ font-size:12px; opacity:.88; margin-top:2px; }
+  .my-stats{ display:flex; gap:8px; margin-bottom:14px; }
+  .my-stats .st{
+    flex:1; background:#fff; border-radius:12px; padding:10px 6px; text-align:center;
+    box-shadow:0 1px 3px rgba(0,0,0,.05);
+  }
+  .my-stats .st .num{ font-size:20px; font-weight:700; color:var(--green-d); }
+  .my-stats .st .lbl{ font-size:10.5px; color:var(--muted); margin-top:2px; }
+  .my-tabs{ display:flex; gap:6px; overflow-x:auto; margin-bottom:12px; padding-bottom:2px; }
+  .my-tabs .tab{
+    flex-shrink:0; font-size:12px; padding:6px 12px; border-radius:16px; background:#fff;
+    border:1px solid var(--line); color:#666; cursor:pointer; transition:.15s;
+  }
+  .my-tabs .tab.on{ background:var(--green); color:#fff; border-color:var(--green); font-weight:600; }
+  .my-list{ display:flex; flex-direction:column; gap:10px; }
+  .my-item{
+    background:#fff; border-radius:14px; padding:12px 14px; box-shadow:0 1px 4px rgba(0,0,0,.05);
+    cursor:pointer; transition:.15s; border:1px solid transparent;
+  }
+  .my-item:hover{ border-color:var(--green-l); box-shadow:0 3px 10px rgba(46,158,91,.12); }
+  .my-item:active{ transform:scale(.98); }
+  .my-item .row1{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .my-item .row1 .left{ display:flex; align-items:center; gap:8px; }
+  .my-item .row1 .ic{ font-size:20px; }
+  .my-item .row1 .tit{ font-size:14px; font-weight:600; color:#333; }
+  .my-item .row2{ font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .my-item .row3{ font-size:12.5px; color:#555; line-height:1.45; }
+  .my-item .time{ font-size:11px; color:#aaa; margin-top:6px; }
+  .my-back{
+    display:inline-flex; align-items:center; gap:4px; font-size:13px; color:var(--green-d);
+    margin-bottom:12px; cursor:pointer; font-weight:600;
+  }
+  .my-detail{
+    background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 3px 12px rgba(0,0,0,.08);
+    border:1px solid var(--line); animation:pop .3s ease;
+  }
+  .my-detail .md-h{ background:var(--green-l); padding:14px; border-bottom:1px solid var(--line); }
+  .my-detail .md-h .tit{ font-size:15px; font-weight:600; color:var(--green-d); display:flex; align-items:center; gap:8px; }
+  .my-detail .md-h .no{ font-size:12px; color:var(--muted); margin-top:4px; }
+  .my-detail .md-b{ padding:14px; }
+  .my-detail .md-row{ display:flex; margin-bottom:9px; font-size:13px; }
+  .my-detail .md-row .k{ color:var(--muted); width:68px; flex-shrink:0; }
+  .my-detail .md-row .v{ flex:1; color:#333; line-height:1.45; }
+  .my-detail .md-track{ border-top:1px dashed var(--line); padding:12px 14px; }
+  .my-detail .md-track .tl{ font-size:12px; color:#555; padding:6px 0; border-left:2px solid var(--green); padding-left:10px; margin-bottom:6px; }
+  .my-detail .md-track .tl:last-child{ margin-bottom:0; }
+  .my-detail .md-track .tl.cur{ border-left-color:var(--green-d); font-weight:600; color:var(--green-d); }
+  .my-detail .md-track .tl .ts{ font-size:10.5px; color:#aaa; font-weight:400; }
+  .my-empty{ text-align:center; padding:40px 20px; color:var(--muted); font-size:13px; }
+  .my-empty .ic{ font-size:36px; margin-bottom:8px; }
+
+  /* 需求文档弹层 */
+  .doc-modal{
+    position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:100;
+    display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  .doc-modal.show{ display:flex; }
+  .doc-panel{
+    width:min(960px,100%); height:min(88vh,820px); background:#fff; border-radius:16px;
+    overflow:hidden; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.35);
+  }
+  .doc-panel .doc-h{
+    background:linear-gradient(135deg,var(--green),var(--green-d)); color:#fff;
+    padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;
+  }
+  .doc-panel .doc-h .t{ font-size:15px; font-weight:600; }
+  .doc-panel .doc-h .close{
+    width:32px; height:32px; border-radius:50%; background:rgba(255,255,255,.22);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:20px; line-height:1;
+  }
+  .doc-panel .doc-h .close:hover{ background:rgba(255,255,255,.35); }
+  .doc-panel iframe{ flex:1; width:100%; border:none; background:#f5f7f6; }
+
+  .side .doc-btn{
+    margin:0 0 18px; padding:10px 14px; border-radius:10px; cursor:pointer; font-size:13px;
+    background:rgba(143,227,172,.2); border:1px solid rgba(143,227,172,.35); color:#dfeee5;
+    text-align:center; transition:.15s;
+  }
+  .side .doc-btn:hover{ background:rgba(143,227,172,.35); }
+
+  @media(max-width:760px){ .side{ display:none; } }
+</style>
+</head>
+<body>
+
+  <!-- 左侧说明 -->
+  <aside class="side">
+    <h1>AI 村小二 · 原型交互</h1>
+    <div class="sub">点击手机首页任意服务卡片 / 下方场景，查看该场景的对话处理全流程演示</div>
+    <div class="doc-btn" onclick="openReadme()">📄 查看需求文档（README）</div>
+
+    <div class="sec-title">工程目录（ai-cunxiaoer）</div>
+    <pre class="dir-tree">ai-cunxiaoer/
+├── package.json / render.yaml
+├── README.md
+├── docs/                 # 需求 · 原型 · 预算 · PPT
+│   ├── 未来乡村AI版-便民服务需求清单.md
+│   ├── 未来乡村AI版-技术框架与成本预算.html
+│   ├── 未来乡村AI版原型.html
+│   └── AI村小二-产品演示-3.pptx
+├── scripts/              # 截图 / PPT / 冒烟测试
+├── web/                  # Vite + React 前端
+│   ├── public/docs/
+│   └── src/
+│       ├── api/
+│       ├── engine/
+│       ├── pages/user/
+│       ├── pages/admin/
+│       └── styles/
+└── server/               # Express API
+    ├── data/db.json
+    └── src/</pre>
+
+    <div class="sec-title">六步办事流程</div>
+    <div class="flow-legend">
+      <div class="st"><b>①</b> 识别场景 · 点选或听懂需求</div>
+      <div class="st"><b>②</b> 确认事项 · 复述核对</div>
+      <div class="st"><b>③</b> 采集信息 · 逐项追问</div>
+      <div class="st"><b>④</b> 确认摘要 · 用户核对</div>
+      <div class="st"><b>⑤</b> 自动生单 · 分派处理</div>
+      <div class="st"><b>⑥</b> 反馈结果 · 单号与时效</div>
+    </div>
+
+    <div class="sec-title">场景演示（点击播放）</div>
+    <div class="scn-list" id="scnList"></div>
+  </aside>
+
+  <!-- 手机 -->
+  <div class="phone">
+    <div class="screen">
+      <div class="statusbar">
+        <span>9:00</span>
+        <div class="status-right">
+          <span class="status-doc" onclick="openReadme()">📄 需求文档</span>
+          <span>5G &nbsp; 100%</span>
+        </div>
+      </div>
+      <div class="navbar">
+        <div class="back-btn" id="backBtn" onclick="goHome()" title="返回">‹</div>
+        <div class="avatar">🤖</div>
+        <div class="tt">
+          <div class="n">AI 村小二</div>
+          <div class="s"><span class="dot-online"></span> 在线 · 7×24 为您服务</div>
+        </div>
+        <div class="nav-actions">
+          <div class="reset my-btn" onclick="goMy()">👤 我的</div>
+        </div>
+      </div>
+
+      <!-- 六步指示器 -->
+      <div class="stepper" id="stepper">
+        <div class="step" data-i="1"><div class="circle">1</div><div class="lbl">识别</div></div>
+        <div class="step" data-i="2"><div class="circle">2</div><div class="lbl">确认</div></div>
+        <div class="step" data-i="3"><div class="circle">3</div><div class="lbl">采集</div></div>
+        <div class="step" data-i="4"><div class="circle">4</div><div class="lbl">摘要</div></div>
+        <div class="step" data-i="5"><div class="circle">5</div><div class="lbl">生单</div></div>
+        <div class="step" data-i="6"><div class="circle">6</div><div class="lbl">反馈</div></div>
+      </div>
+
+      <div class="chat" id="chat"></div>
+
+      <div class="hint-pill" id="hint"></div>
+
+      <!-- 语音聆听浮层 -->
+      <div class="listen" id="listen">
+        <div class="box">
+          <div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div style="font-size:15px">正在聆听…</div>
+          <div style="font-size:11px;opacity:.85">演示模式 · 松手自动识别</div>
+        </div>
+      </div>
+
+      <div class="inputbar" id="inputbar">
+        <div class="mic" id="micBtn" title="点击模拟语音输入">🎙️</div>
+        <input class="fld" id="txt" placeholder="说句话或打字，问村小二…" autocomplete="off" />
+        <div class="attach" id="attachBtn" title="上传附件">📎</div>
+        <div class="send" id="sendBtn" title="发送">➤</div>
+        <input type="file" id="fileInput" accept="image/*" hidden />
+      </div>
+    </div>
+  </div>
+
+  <!-- 需求文档弹层 -->
+  <div class="doc-modal" id="docModal" onclick="if(event.target===this)closeReadme()">
+    <div class="doc-panel">
+      <div class="doc-h">
+        <div class="t">📄 未来乡村 AI 版 · 便民服务需求文档</div>
+        <div class="close" onclick="closeReadme()" title="关闭">×</div>
+      </div>
+      <iframe id="docFrame" src="about:blank" title="需求文档"></iframe>
+    </div>
+  </div>
+
+<script>
+/* ================== 场景脚本数据 ================== */
+// 节点：step / bot / botFn / user / userFn / img / opts(+as) / card / cardFn / result / resultFn
+const PROBLEM_META = {
+  '环境卫生': { demo:'村口公交站旁边的垃圾桶满了，好几天没人清了', issue:'垃圾桶满溢', place:'村口公交站旁', notify:'村委负责卫生的小张' },
+  '道路设施': { demo:'村主干道 2 组路口有个坑洼，过往车辆颠得很厉害，希望尽快修补', issue:'路面破损', place:'村主干道（2组路口）', notify:'村委道路管护员老周' },
+  '噪音扰民': { demo:'村东头建房工地晚上加班施工，噪音很大影响休息', issue:'夜间施工噪音', place:'村东头建房工地', notify:'村委综合治理员' },
+  '其他': { demo:'村口公示栏的灯坏了，晚上看不清通知', issue:'其他问题', place:'村口公示栏', notify:'村委值班人员' },
+};
+const REPAIR_META = {
+  '路灯': { demo:'3组文化礼堂门口那盏路灯，这两天晚上都不亮了', fault:'夜间不亮，疑似线路故障', place:'3组文化礼堂门口', assignee:'片区电工王师傅' },
+  '健身器材': { demo:'文化广场的椭圆机脚踏松了，摇晃得厉害，不安全', fault:'脚踏松动', place:'文化广场', assignee:'文体设施维护员' },
+  '监控': { demo:'村口卡口监控不转动了，画面也黑屏', fault:'黑屏 / 云台失灵', place:'村口卡口', assignee:'平安乡村运维员' },
+  '垃圾桶': { demo:'2组路口的垃圾桶盖子坏了，垃圾容易被风刮散', fault:'桶盖损坏', place:'2组路口', assignee:'环卫管理员' },
+};
+function problemMeta(ctx){ return PROBLEM_META[ctx.category] || PROBLEM_META['其他']; }
+function repairMeta(ctx){ return REPAIR_META[ctx.facility] || REPAIR_META['路灯']; }
+function problemReporter(ctx){ return ctx.anon==='匿名反映' ? '匿名（不公开身份）' : '张大叔 138****1234'; }
+
+const VILLAGE_PANELS = {
+  '村概况': {
+    title:'🏘️ 龙溪村 · 村概况', sub:'浙江省湖州市 · 长兴县 · 小浦镇',
+    body:'<b>龙溪村</b>位于长兴县小浦镇，因龙溪穿村而过得名。全村辖 6 个村民小组，常住人口约 1200 人。<br><br>📍 村委会地址：龙溪路 88 号<br>☎️ 村务热线：0572-60****88<br>🕐 办公时间：周一至周五 8:30-17:00',
+  },
+  '班子成员': {
+    title:'👥 龙溪村 · 班子成员', sub:'2026年度',
+    cadres:[
+      { av:'👨‍💼', name:'王建国', role:'村支书 · 兼村主任', phone:'138****1001' },
+      { av:'👩‍💼', name:'李秀英', role:'副书记 · 分管民政', phone:'139****1002' },
+      { av:'👨‍💼', name:'张强', role:'村委委员 · 分管综治', phone:'137****1003' },
+      { av:'👩‍💼', name:'陈芳', role:'村委委员 · 分管财务', phone:'136****1004' },
+      { av:'👨‍💼', name:'赵明', role:'村委委员 · 分管农业', phone:'135****1005' },
+    ],
+  },
+  '村社网格': {
+    title:'📍 龙溪村 · 村社网格', sub:'6个村民小组',
+    communities:[
+      { name:'1组（龙溪头）', lead:'王大哥', households:'42户' },
+      { name:'2组（溪南）', lead:'李大姐', households:'38户' },
+      { name:'3组（溪北）', lead:'张叔', households:'45户' },
+      { name:'4组（山脚）', lead:'陈婶', households:'36户' },
+      { name:'5组（新村）', lead:'赵哥', households:'40户' },
+      { name:'6组（龙溪尾）', lead:'刘姐', households:'35户' },
+    ],
+  },
+  '村约村规': {
+    title:'📜 龙溪村 · 村约村规', sub:'2024年村民代表大会修订',
+    body:'<b>一、环境卫生</b><br>房前屋后保持整洁，垃圾定点投放，禁止乱倒乱堆。<br><br><b>二、邻里和睦</b><br>互尊互让，矛盾先找网格长调解，不搞封建迷信活动。<br><br><b>三、红白喜事</b><br>简办节约，提前向村委报备，使用文化礼堂需预约。<br><br><b>四、生态保护</b><br>保护龙溪水系，禁止电鱼毒鱼，严禁秸秆焚烧。<br><br><b>五、安全治理</b><br>自觉遵纪守法，发现安全隐患及时报告村委。<br><br><span style="color:#888;font-size:11px">完整版可在村委会公告栏或「浙里办-村务公开」查阅</span>',
+  },
+};
+
+const scenarios = {
+
+  problem: { name:'反映问题', icon:'📋', tag:'FK 问题工单', steps:[
+    {step:1},
+    {bot:'好的，我来帮您反映问题。请问是哪方面的情况？'},
+    {opts:['环境卫生','道路设施','噪音扰民','其他'], pick:'环境卫生', as:'category'},
+    {step:2},
+    {botFn: ctx => `明白，是「${ctx.category}」类问题。请描述一下具体情况，在什么位置？`},
+    {userFn: ctx => problemMeta(ctx).demo},
+    {step:3},
+    {bot:'能拍张照片吗？方便工作人员快速定位处理。'},
+    {opts:['上传现场照片','暂无照片'], pick:'上传现场照片', as:'photo'},
+    {botFn: ctx => ctx.photo==='暂无照片'
+      ? '好的，没有照片也可以。需要匿名反映吗？（默认显示您的姓名）'
+      : '照片已收到。需要匿名反映吗？（默认显示您的姓名）'},
+    {opts:['实名反映','匿名反映'], pick:'实名反映', as:'anon'},
+    {label:'summary'},
+    {step:4},
+    {botFn: ctx => ctx.anon==='匿名反映' ? '好的，将按匿名方式提交。请您核对一下信息 👇' : '请您核对一下信息 👇'},
+    {cardFn: ctx => {
+      const m = problemMeta(ctx);
+      return {
+        title:'问题反馈工单', no:'FK20260708001', status:['wait','待受理'],
+        rows:[
+          ['类型', `${ctx.category} · ${m.issue}`],
+          ['位置', m.place],
+          ['情况', m.demo],
+          ['照片', ctx.photo==='暂无照片' ? '未上传' : '已上传 1 张'],
+          ['反映人', problemReporter(ctx)],
+        ],
+        track:['已提交','处理中','已完成'], on:0
+      };
+    }},
+    {opts:['确认提交','修改信息'], pick:'确认提交', as:'confirm'},
+    {goto: ctx => /修改/.test(ctx.confirm||'') ? 'recollect' : 'submit'},
+    {label:'recollect'},
+    {bot:'好的，我们重新填写后再核对。请问是哪方面的情况？'},
+    {opts:['环境卫生','道路设施','噪音扰民','其他'], pick:'环境卫生', as:'category'},
+    {botFn: ctx => `明白，是「${ctx.category}」类问题。请重新描述一下具体情况，在什么位置？`},
+    {userFn: ctx => problemMeta(ctx).demo},
+    {bot:'需要更新照片吗？'},
+    {opts:['上传现场照片','暂无照片'], pick:'上传现场照片', as:'photo'},
+    {bot:'需要匿名反映吗？（默认显示您的姓名）'},
+    {opts:['实名反映','匿名反映'], pick:'实名反映', as:'anon'},
+    {goto:'summary'},
+    {label:'submit'},
+    {step:5},
+    {botFn: ctx => `✅ 工单已生成并派单！\n已通知${problemMeta(ctx).notify}。`},
+    {step:6},
+    {resultFn: ctx => {
+      const anonTip = ctx.anon==='匿名反映' ? '\n您的身份不会对外公开。' : '';
+      return `📍 工单号 FK20260708001 · 预计 1 个工作日内处理${anonTip}\n处理完成后我会第一时间通知您，也可随时问我「进度怎么样了」。`;
+    }},
+    {bot:'还有其他需要帮忙的吗？'},
+    {opts:['查看进度','返回首页'], pick:'查看进度', goHome:false},
+  ]},
+
+  repair: { name:'设施报修', icon:'🔧', tag:'BX 报修工单', steps:[
+    {step:1},
+    {bot:'好的，帮您报修。请问是哪类设施出问题了？'},
+    {opts:['路灯','健身器材','监控','垃圾桶'], pick:'路灯', as:'facility'},
+    {step:2},
+    {botFn: ctx => `收到，是「${ctx.facility}」报修。具体在什么位置？大概什么情况？`},
+    {userFn: ctx => repairMeta(ctx).demo},
+    {step:3},
+    {botFn: ctx => `方便拍一下「${ctx.facility}」和周边环境吗？`},
+    {opts:['上传现场照片','暂无照片'], pick:'上传现场照片', as:'photo'},
+    {label:'summary'},
+    {step:4},
+    {bot:'请核对报修信息 👇'},
+    {cardFn: ctx => {
+      const m = repairMeta(ctx);
+      return {
+        title:'设施报修工单', no:'BX20260708014', status:['wait','待派单'],
+        rows:[
+          ['设施', `${ctx.facility}（${m.place}）`],
+          ['故障', m.fault],
+          ['情况', m.demo],
+          ['照片', ctx.photo==='暂无照片' ? '未上传' : '已上传'],
+          ['报修人', '李大姐 139****5678'],
+        ],
+        track:['已提交','维修中','已完成'], on:0
+      };
+    }},
+    {opts:['确认提交','修改'], pick:'确认提交', as:'confirm'},
+    {goto: ctx => /修改/.test(ctx.confirm||'') ? 'recollect' : 'submit'},
+    {label:'recollect'},
+    {bot:'好的，我们重新填写后再核对。请问是哪类设施？'},
+    {opts:['路灯','健身器材','监控','垃圾桶'], pick:'路灯', as:'facility'},
+    {botFn: ctx => `收到，是「${ctx.facility}」报修。请重新说明位置和情况？`},
+    {userFn: ctx => repairMeta(ctx).demo},
+    {bot:'需要更新照片吗？'},
+    {opts:['上传现场照片','暂无照片'], pick:'上传现场照片', as:'photo'},
+    {goto:'summary'},
+    {label:'submit'},
+    {step:5},
+    {botFn: ctx => `✅ 已生成报修工单，自动派给${repairMeta(ctx).assignee}。`},
+    {step:6},
+    {resultFn: ctx => `🔧 工单号 BX20260708014 · 一般 24 小时内上门\n「${ctx.facility}」维修完成会附现场照片请您确认。`},
+  ]},
+
+  sell: { name:'卖农产品', icon:'🌾', tag:'SP 上架审核', steps:[
+    {step:1},
+    {bot:'好嘞！帮您把农产品挂到村民商城。请问您想卖什么？'},
+    {user:'我家板栗熟了，想卖一些'},
+    {step:2},
+    {bot:'好的，上架「板栗」。我问几个问题就能帮您发布～\n大概有多少斤？'},
+    {step:3},
+    {user:'200 斤左右'},
+    {bot:'想卖多少钱一斤？'},
+    {user:'8 块'},
+    {bot:'拍几张板栗的照片吧，买家看了更放心。'},
+    {img:'板栗照片'},
+    {label:'summary'},
+    {step:4},
+    {bot:'帮您整理好了，请核对 👇'},
+    {card:{
+      title:'商品上架审核单', no:'SP20260708002', status:['wait','待审核'],
+      rows:[['商品','新鲜板栗'],['数量','约 200 斤'],['价格','8 元/斤'],['联系人','张大叔 138****1234']],
+      track:['已提交','审核中','已上架'], on:0
+    }},
+    {opts:['确认提交','改一下'], pick:'确认提交', as:'confirm'},
+    {goto: ctx => /改一下|修改/.test(ctx.confirm||'') ? 'recollect' : 'submit'},
+    {label:'recollect'},
+    {bot:'好的，我们重新填写一下～大概有多少斤？'},
+    {user:'150 斤左右'},
+    {bot:'想卖多少钱一斤？'},
+    {user:'7 块'},
+    {goto:'summary'},
+    {label:'submit'},
+    {step:5},
+    {bot:'✅ 上架申请已提交，正在等村里审核。'},
+    {step:6},
+    {result:'🛒 审核单号 SP20260708002 · 审核一般当天完成\n通过后会自动展示在「村民商城」，有人下单或留言我会通知您。'},
+  ]},
+
+  policy: { name:'政策咨询', icon:'📖', tag:'知识问答', steps:[
+    {step:1},
+    {bot:'您想了解哪方面的政策？可以直接把您的情况告诉我。'},
+    {user:'我养了 50 只鸡，有没有什么补贴？'},
+    {step:2},
+    {bot:'您是想了解「养殖类补贴」对吗？我帮您查本村的政策。'},
+    {step:3},
+    {bot:'请问是散养还是圈养？养殖多久了？'},
+    {user:'散养，生态的，养了大半年了'},
+    {step:6},
+    {bot:'为您找到最匹配的政策 👇'},
+    {result:'📖 生态养殖补贴（大白话版）\n· 条件：生态散养、规模 30 只以上\n· 标准：每只 5 元，最高补 500 只\n· 您养 50 只，预计可补贴 250 元 ✅'},
+    {bot:'需要我告诉您怎么申请、去哪办吗？'},
+    {opts:['要，帮我预约村委','先了解材料'], pick:'要，帮我预约村委'},
+    {bot:'好的，帮您预约村委代办员。申请需要：身份证、养殖现场照片。'},
+    {card:{
+      title:'预约服务单', no:'YY20260708007', status:['doing','待确认'],
+      rows:[['事项','生态养殖补贴申请'],['预约点','村委便民服务窗口'],['预约人','张大叔 138****1234'],['材料','身份证、养殖照片']],
+      track:['已预约','已确认','已办理'], on:0
+    }},
+    {result:'📅 预约单 YY20260708007 已提交，村委确认时间后 AI 通知您。政策类咨询即问即答，复杂办理才生成预约单。'},
+  ]},
+
+  skill: { name:'技能咨询', icon:'🎓', tag:'JN 技能咨询', steps:[
+    {step:1},
+    {bot:'技能方面我能帮您：查培训课程、问技能问题、匹配师傅。您想了解什么？'},
+    {opts:['有什么培训','电商怎么学','手工艺技能','其它问题'], pick:'电商怎么学', as:'topic'},
+    {step:2},
+    {botFn: ctx => `好的，「${ctx.topic}」相关咨询。您目前有没有相关经验？可以说说您的情况。`},
+    {userFn: ctx => ctx.topic==='手工艺技能' ? '想学竹编，家里有点基础'
+      : ctx.topic==='有什么培训' ? '想看看最近有什么免费培训'
+      : '不会，想学着在网上卖板栗'},
+    {step:3},
+    {bot:'明白了～为您匹配本村及镇里的相关资源 👇'},
+    {resultFn: ctx => {
+      if(ctx.topic==='手工艺技能') return '🎓 手工艺技能推荐\n1. 村非遗传承人 · 竹编入门 · 周末开班\n2. 镇文化站 · 剪纸/编织兴趣班\n3. 线上微课 · 基础工具与材料';
+      if(ctx.topic==='有什么培训') return '🎓 近期培训一览\n1. 电商入门班 · 镇电商服务站 · 免费\n2. 农机安全操作 · 农技站 · 本月\n3. 家政服务技能 · 人社窗口报名';
+      return '🎓 电商技能培训推荐\n1. 镇电商服务站 · 免费入门班 · 7月12日开班\n2. 村电商达人李姐 · 可一对一辅导\n3. 线上课程 · 短视频+直播带货基础';
+    }},
+    {bot:'需要帮您报名培训班，还是约李姐当面请教？'},
+    {opts:['报名7月12日培训班','约李姐请教','先了解课程内容'], pick:'报名7月12日培训班', as:'action'},
+    {step:4},
+    {botFn: ctx => ctx.action==='约李姐请教' ? '好的，帮您登记向李姐请教，请核对 👇'
+      : ctx.action==='先了解课程内容' ? '好的，先帮您留个了解意向，请核对 👇'
+      : '好的，帮您登记培训报名，请核对 👇'},
+    {label:'summary'},
+    {cardFn: ctx => {
+      const train = ctx.topic==='手工艺技能' ? '竹编入门班'
+        : ctx.topic==='有什么培训' ? '近期培训意向登记' : '电商入门班（短视频+直播）';
+      const place = ctx.topic==='手工艺技能' ? '村文化礼堂' : '小浦镇电商服务站';
+      return {
+        title:'技能培训报名单', no:'PX20260708055', status:['wait','待确认'],
+        rows:[['培训',train],['意向',ctx.action||'报名培训'],['地点',place],['报名人','张大叔 138****1234']],
+        track:['已报名','已确认','已结业'], on:0
+      };
+    }},
+    {opts:['确认报名','改时间'], pick:'确认报名', as:'confirm'},
+    {goto: ctx => /改时间|修改|再改/.test(ctx.confirm||'') ? 'recollect' : 'submit'},
+    {label:'recollect'},
+    {bot:'好的，我们重新选一下意向～'},
+    {opts:['报名7月12日培训班','约李姐请教','先了解课程内容'], pick:'约李姐请教', as:'action'},
+    {botFn: ctx => ctx.action==='约李姐请教' ? '好的，帮您登记向李姐请教，请核对 👇'
+      : ctx.action==='先了解课程内容' ? '好的，先帮您留个了解意向，请核对 👇'
+      : '好的，帮您登记培训报名，请核对 👇'},
+    {goto:'summary'},
+    {label:'submit'},
+    {step:5},{step:6},
+    {resultFn: ctx => `📚 报名单 PX20260708055 已提交（${ctx.topic}）。开班前 1 天 AI 提醒您带身份证准时参加。`},
+  ]},
+
+  medical: { name:'医疗挂号', icon:'🏥', tag:'GH 挂号/健康咨询', steps:[
+    {step:1},
+    {bot:'医疗方面我能帮您：预约挂号、健康咨询、查附近卫生院。请问您需要？'},
+    {opts:['预约挂号','健康咨询','查附近卫生院'], pick:'预约挂号', as:'medNeed'},
+    {step:2},
+    {botFn: ctx => ctx.medNeed==='健康咨询' ? '好的，健康咨询。请简单说说您的不适症状？'
+      : ctx.medNeed==='查附近卫生院' ? '好的，帮您查附近医疗机构。您更想看哪一类？'
+      : '好的，帮您挂号。请问去哪个医院？看什么科？'},
+    {opts:['小浦镇卫生院 · 内科','小浦镇卫生院 · 中医科','长兴县中医院'], pick:'小浦镇卫生院 · 内科', as:'hospital'},
+    {botFn: ctx => `查一下「${ctx.hospital}」最近可预约号源…`},
+    {medSlotsFn: ctx => ({
+      title:`🏥 ${ctx.hospital} 号源`,
+      slots:[
+        { nm:'7月9日 上午', st:'ok', label:'余 12 号' },
+        { nm:'7月9日 下午', st:'few', label:'余 3 号' },
+        { nm:'7月10日 上午', st:'ok', label:'余 18 号' },
+        { nm:'7月10日 下午', st:'ok', label:'余 9 号' },
+      ],
+    })},
+    {bot:'您想预约哪个时段？'},
+    {opts:['7月9日 上午','7月9日 下午','7月10日 上午'], pick:'7月9日 上午', as:'slot'},
+    {step:3},
+    {bot:'就诊人姓名和联系电话？（已注册用户自动填充）'},
+    {user:'张大叔，138****1234'},
+    {label:'summary'},
+    {step:4},
+    {bot:'请核对挂号信息 👇'},
+    {cardFn: ctx => {
+      const parts = (ctx.hospital||'小浦镇卫生院 · 内科').split(' · ');
+      return {
+        title:'预约挂号单', no:'GH20260709001', status:['ok','已预约'],
+        rows:[
+          ['医院', parts[0]||'小浦镇卫生院'],
+          ['科室', parts[1]||'门诊'],
+          ['时间', `${ctx.slot||'7月9日 上午'} 9:30`],
+          ['序号','15号（预估）'],
+          ['就诊人','张大叔 138****1234'],
+        ],
+        track:['已预约','待就诊','已就诊'], on:0
+      };
+    }},
+    {opts:['确认挂号','换时段'], pick:'确认挂号', as:'confirm'},
+    {goto: ctx => /换时段|修改|改时间/.test(ctx.confirm||'') ? 'recollect' : 'submit'},
+    {label:'recollect'},
+    {bot:'好的，请重新选择预约时段～'},
+    {opts:['7月9日 上午','7月9日 下午','7月10日 上午'], pick:'7月9日 下午', as:'slot'},
+    {goto:'summary'},
+    {label:'submit'},
+    {step:5},{step:6},
+    {resultFn: ctx => `🏥 挂号成功！单号 GH20260709001\n${ctx.hospital||''} · ${ctx.slot||''}\n请提前 15 分钟到院取号，带好身份证和医保卡。就诊前 1 天我会提醒您～`},
+  ]},
+
+  health: { name:'健康咨询', icon:'💊', tag:'健康导引', steps:[
+    {step:1},
+    {bot:'健康咨询我可以帮您：了解常见症状、用药提醒、是否需要就医。请描述一下您的情况～\n（⚠️ 不能替代医生诊断，紧急情况请拨打 120）'},
+    {user:'最近血压有点高，130多，要不要紧？'},
+    {step:2},
+    {bot:'请问您年龄多大？有没有在吃药？平时有没有头晕、胸闷？'},
+    {user:'65岁，没吃药，偶尔有点头晕'},
+    {step:6},
+    {result:'💊 健康导引（仅供参考）\n· 130+ 血压对 65 岁老人偏高，建议关注\n· 建议：低盐饮食、规律作息、每天测血压记录\n· 若持续 ≥140/90 或头晕加重 → 建议到卫生院内科就诊\n· 紧急情况（胸痛、剧烈头痛）→ 立即拨打 120'},
+    {bot:'需要帮您预约卫生院测血压或挂内科号吗？'},
+    {opts:['帮我挂号','先自己观察','设用药提醒'], pick:'帮我挂号'},
+    {result:'已为您跳转「医疗挂号」流程，可快速预约小浦镇卫生院内科号源。'},
+  ]},
+
+  village: { name:'村务公开', icon:'🏘️', tag:'龙溪村 · 村务查询', steps:[
+    {step:1},
+    {bot:'为您展示【浙江省 · 长兴县 · 龙溪村】村务公开信息 👇\n想了解哪方面？'},
+    {opts:['村概况','班子成员','村社网格','村约村规'], pick:'村概况', as:'v1'},
+    {step:6},
+    {infoPanelFn: ctx => VILLAGE_PANELS[ctx.v1] || VILLAGE_PANELS['村概况']},
+    {botFn: ctx => `已为您展示「${ctx.v1}」。还想了解其它公开信息吗？`},
+    {opts:['班子成员','村社网格','村约村规','返回首页'], pick:'班子成员', as:'v2'},
+    {infoPanelFn: ctx => {
+      if(ctx.v2==='返回首页') return null;
+      return VILLAGE_PANELS[ctx.v2] || VILLAGE_PANELS['班子成员'];
+    }},
+    {botFn: ctx => ctx.v2==='返回首页' ? '好的，您可随时再来问我村务信息。' : '继续查看？'},
+    {opts:['村社网格','村约村规','联系村支书'], pick:'村社网格', as:'v3'},
+    {infoPanelFn: ctx => {
+      if(ctx.v3==='联系村支书'){
+        return { title:'☎️ 联系村支书', sub:'王建国', body:'村支书王建国 · 138****1001<br>办公时间：周一至周五 8:30-17:00<br>也可到村委会龙溪路 88 号当面沟通。' };
+      }
+      return VILLAGE_PANELS[ctx.v3] || VILLAGE_PANELS['村社网格'];
+    }},
+    {bot:'还要看村约村规吗？'},
+    {opts:['村约村规','够了，谢谢'], pick:'村约村规', as:'v4'},
+    {infoPanelFn: ctx => ctx.v4==='够了，谢谢' ? null : VILLAGE_PANELS['村约村规']},
+    {result:'📋 以上信息均来自龙溪村政务公开栏，如有更新以村委最新发布为准。需要联系村干部可告诉我「联系王书记」。'},
+  ]},
+
+  job: { name:'找活干', icon:'💼', tag:'QZ 求职登记', steps:[
+    {step:1},
+    {bot:'帮您找合适的活儿。为了推荐更准，问您几个问题～'},
+    {step:3},
+    {bot:'您今年多大？有什么技能或做过什么工作？'},
+    {user:'58，会开车，种过地'},
+    {bot:'想找全职还是兼职？'},
+    {opts:['全职','兼职都行'], pick:'兼职都行', as:'jobType'},
+    {step:6},
+    {botFn: ctx => `根据您的情况（意向：${ctx.jobType}），为您找到 3 个岗位 👇`},
+    {resultFn: ctx => ctx.jobType==='全职'
+      ? '💼 匹配岗位（58岁·会开车·务农经验 · 全职）\n1. 农家乐帮厨 · 包吃住 · 3000元/月\n2. 农业基地管理员 · 3500元/月\n3. 镇环卫保洁 · 2800元/月'
+      : '💼 匹配岗位（58岁·会开车·务农经验 · 可兼职）\n1. 农家乐帮厨 · 包吃住 · 3000元/月\n2. 民宿保洁 · 可兼职 · 120元/天\n3. 农业基地管理员 · 3500元/月'},
+    {bot:'想投递哪个？我帮您把简历发过去。'},
+    {opts:['投第 3 个','都投'], pick:'投第 3 个', as:'apply'},
+    {step:5},
+    {cardFn: ctx => ({
+      title:'求职登记单', no:'QZ20260708009', status:['doing','已推荐'],
+      rows:[
+        ['求职人','王伯 · 58岁'],
+        ['技能','驾驶 / 务农'],
+        ['类型', ctx.jobType||'兼职都行'],
+        ['意向', ctx.apply==='都投' ? '全部岗位' : '农业基地管理员'],
+        ['联系','137****2233'],
+      ],
+      track:['已登记','已推荐','已对接'], on:1
+    })},
+    {step:6},
+    {resultFn: ctx => ctx.apply==='都投'
+      ? '📨 已把您的简历推荐给 3 家用工方，对方查看后会联系面试，进展我随时通知您。'
+      : '📨 已把您的简历推荐给「绿丰农业基地」，对方查看后会联系面试，进展我随时通知您。'},
+  ]},
+
+  meal: { name:'老年订餐', icon:'🍚', tag:'DC 订餐单', steps:[
+    {step:1},
+    {bot:'张奶奶好～您是想看食堂菜单，还是直接订餐？'},
+    {opts:['看菜单','直接订明天的'], pick:'看菜单', as:'mealAct'},
+    {step:2},
+    {botFn: ctx => ctx.mealAct==='直接订明天的'
+      ? '好的，帮您直接订明天的餐。明天菜单有：红烧肉套餐、清蒸鱼套餐（60岁以上 5 元/份）。'
+      : '明天（7月9日）老年食堂菜单：\n荤菜：红烧肉、清蒸鱼\n素菜：炒青菜、豆腐汤\n主食：米饭\n（60岁以上 5 元/份）'},
+    {bot:'需要帮您订一份吗？'},
+    {opts:['订红烧肉套餐','不用了'], pick:'订红烧肉套餐', as:'mealPick'},
+    {goto: ctx => ctx.mealPick==='不用了' ? 'mealCancel' : 'mealOrder'},
+    {label:'mealCancel'},
+    {bot:'好的，不订也没关系～有需要随时跟我说，祝您今天安康！'},
+    {result:'🍚 已取消订餐，未生成订单。'},
+    {goto:'mealEnd'},
+    {label:'mealOrder'},
+    {step:3},
+    {bot:'好的，订几份？需要送餐上门吗？（80岁以上免费送）'},
+    {user:'一份，我自己去拿'},
+    {label:'summary'},
+    {step:4},
+    {bot:'请确认订餐信息 👇'},
+    {card:{
+      title:'订餐确认单', no:'DC20260708021', status:['ok','已预订'],
+      rows:[['日期','7月9日 午餐'],['套餐','红烧肉套餐 ×1'],['金额','5 元'],['取餐','老年活动室 11:30']],
+      track:['已预订','备餐中','已取餐'], on:0
+    }},
+    {opts:['确认','取消'], pick:'确认', as:'confirm'},
+    {goto: ctx => /取消|不用/.test(ctx.confirm||'') ? 'mealCancel' : 'submit'},
+    {label:'submit'},
+    {step:5},{step:6},
+    {result:'🍚 订餐成功！单号 DC20260708021\n明天 11:30 到老年活动室取餐即可，我会提前提醒您～'},
+    {label:'mealEnd'},
+  ]},
+
+  help: { name:'邻里互助', icon:'🤝', tag:'HZ 互助需求', steps:[
+    {step:1},
+    {bot:'需要邻居搭把手？把您的需求告诉我，我帮您发到邻里圈。'},
+    {user:'明天要搬个大衣柜，一个人搬不动，想找人帮忙'},
+    {step:2},
+    {bot:'明白，是「搬运求助」。大概什么时间？在哪个位置？'},
+    {step:3},
+    {user:'明天上午，就在 2 组我家里'},
+    {label:'summary'},
+    {step:4},
+    {bot:'帮您整理好啦，确认发布 👇'},
+    {card:{
+      title:'邻里互助需求单', no:'HZ20260708031', status:['doing','发布中'],
+      rows:[['类型','搬运帮忙'],['时间','明天上午'],['地点','2组 · 求助人家中'],['发起人','刘婶 136****8899']],
+      track:['已发布','邻居响应','已完成'], on:0
+    }},
+    {opts:['确认发布','再改改'], pick:'确认发布', as:'confirm'},
+    {goto: ctx => /再改|修改/.test(ctx.confirm||'') ? 'recollect' : 'submit'},
+    {label:'recollect'},
+    {bot:'好的，我们重新填一下～大概什么时间？在哪个位置？'},
+    {user:'明天下午，还是 2 组我家里'},
+    {goto:'summary'},
+    {label:'submit'},
+    {step:5},
+    {bot:'✅ 已发布到邻里圈！\n🔔 AI 已推送给附近 5 位热心邻居。'},
+    {step:6},
+    {result:'🤝 已有 2 位邻居表示可以帮忙：\n· 王大哥（1组，2分钟前）\n· 小赵（2组，刚刚）\n需要我帮您和他们联系吗？完成后双方可获积分奖励。'},
+  ]},
+
+  hall: { name:'礼堂预约', icon:'🏛️', tag:'LT 红白事预约', steps:[
+    {step:1},
+    {bot:'好的，帮您预约文化礼堂办红白喜事。\n我可以帮您查场地档期、约厨师、搭配菜单。请问是办什么类型的宴席？'},
+    {opts:['红事（婚宴/满月/寿宴）','白事（追悼/告别）','其它家宴'], pick:'红事（婚宴/满月/寿宴）'},
+    {step:2},
+    {bot:'收到，是「红事宴席」。请问大概哪天办？预计多少桌、多少人？'},
+    {user:'7月15号，18桌左右，大概180人'},
+    {step:3},
+    {bot:'正在查询 7月15日 场地与厨师档期…'},
+    {avail:{
+      title:'📅 7月15日 档期查询结果',
+      sections:[
+        { name:'🏛️ 文化礼堂', slots:[
+          { nm:'中午（11:00-14:00）', st:'ok', label:'✅ 可预约' },
+          { nm:'晚上（17:00-20:00）', st:'busy', label:'❌ 已被占用（李家寿宴）' },
+        ]},
+        { name:'👨‍🍳 厨师档期', slots:[
+          { nm:'张师傅（村内主厨）· 中午', st:'ok', label:'✅ 有空 · 500元/桌起' },
+          { nm:'张师傅 · 晚上', st:'busy', label:'❌ 已被预约' },
+          { nm:'李帮厨（协助）· 中午', st:'ok', label:'✅ 有空 · 80元/桌' },
+        ]},
+      ],
+      tip:'💡 建议：7月15日中午场地+张师傅均空闲；若需晚宴可改 7月14日或 7月16日',
+    }},
+    {bot:'7月15日晚上已被占用。您想预约哪个时段？'},
+    {opts:['7月15日 中午','改 7月14日 晚上','改 7月16日 中午+晚上'], pick:'7月15日 中午'},
+    {step:3},
+    {bot:'好的，7月15日 中午场。需要帮您预约厨师吗？'},
+    {opts:['要，约张师傅+李帮厨','只要张师傅','场地就行，厨师自己找'], pick:'要，约张师傅+李帮厨'},
+    {bot:'18桌红事，我给您推荐几套本地常见菜单，也可以按您的口味调整 👇'},
+    {menu:{
+      type:'red', title:'🍽️ 红事宴席菜单推荐（18桌）',
+      cats:[
+        { name:'冷盘（8道）', items:'白切鸡、酱鸭、海蜇头、醉虾、凉拌木耳、皮蛋豆腐、糟货拼盘、水果拼盘' },
+        { name:'热菜（12道）', items:'红烧肉、清蒸鲈鱼、白灼基围虾、笋干烧肉、时令蔬菜、菌菇汤、红烧蹄髈、清炒时蔬、蒸蛋羹、本地特色土菜' },
+        { name:'主食点心', items:'米饭、长寿面（寿宴可选）、水果、糖果' },
+      ],
+      tip:'按 500元/桌 估算 · 含张师傅主厨 + 李帮厨 · 可换菜、加减道数',
+    }},
+    {bot:'这套菜单合适吗？也可以告诉我您的偏好～'},
+    {opts:['就用这套','换几道：不要虾，加本地土鹅','我有菜单，发给你看'], pick:'换几道：不要虾，加本地土鹅'},
+    {bot:'好的，已调整：\n· 去掉白灼基围虾\n· 增加「本地土鹅」热菜\n· 其余保持不变\n还有特殊要求吗？（忌口、酒水、桌椅布置等）'},
+    {user:'有两桌是老人，菜要清淡一点；酒水我们自己带'},
+    {label:'summary'},
+    {step:4},
+    {bot:'明白，已备注「2桌清淡、酒水自备」。请核对完整预约信息 👇'},
+    {card:{
+      title:'文化礼堂预约单', no:'LT20260715088', status:['wait','待确认'],
+      rows:[
+        ['类型','红事宴席（寿宴/婚宴类）'],
+        ['日期','7月15日（周三）中午 11:00-14:00'],
+        ['场地','文化礼堂 · ✅ 已预留'],
+        ['规模','18桌 · 约180人'],
+        ['厨师','张师傅（主厨）+ 李帮厨 · ✅ 已锁定'],
+        ['菜单','标准18桌套餐（去虾+加土鹅，2桌清淡）'],
+        ['费用','约 500元/桌 ×18 ≈ 9000元（村委确认后通知）'],
+        ['联系人','陈大哥 135****6677'],
+      ],
+      track:['已提交','村委确认','预约成功'], on:0
+    }},
+    {opts:['确认提交预约','修改日期','修改菜单'], pick:'确认提交预约', as:'confirm'},
+    {goto: ctx => /修改日期|修改菜单|修改|再改/.test(ctx.confirm||'') ? 'recollect' : 'submit'},
+    {label:'recollect'},
+    {botFn: ctx => /菜单/.test(ctx.confirm||'')
+      ? '好的，我们再调整一下菜单～您希望怎么改？'
+      : '好的，我们重新选一下日期和时段～'},
+    {opts:['7月15日 中午','改 7月14日 晚上','改 7月16日 中午+晚上'], pick:'改 7月16日 中午+晚上', as:'slot'},
+    {bot:'已按您的新选择更新，请再核对一次 👇'},
+    {goto:'summary'},
+    {label:'submit'},
+    {step:5},
+    {bot:'✅ 预约单已提交！\n已通知村委礼堂管理员和小张师傅确认档期。'},
+    {step:6},
+    {result:'🏛️ 预约单号 LT20260715088 · 一般 1 个工作日内确认\n确认后我会推送最终菜单、进场时间和押金说明。办白事等紧急预约可标记加急，村委优先协调。'},
+    {bot:'需要我把推荐菜单发给您家人看看，或帮您查其它日期吗？'},
+    {opts:['发菜单给家人','查 7月16日档期','返回首页'], pick:'发菜单给家人'},
+    {result:'📤 已将菜单摘要和预约信息发送到您的微信，家人可一同确认。'},
+  ]},
+};
+
+/* 首页默认展示（两排 4×2，最后一格「更多」） */
+const homeFeatured = ['problem','repair','sell','policy','hall','medical','village'];
+
+/* ================== 播放引擎 ================== */
+const chat = document.getElementById('chat');
+const stepper = document.getElementById('stepper');
+const hint = document.getElementById('hint');
+let playing = false, aborter = 0;
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function scrollDown(){ chat.scrollTop = chat.scrollHeight; }
+
+function setStep(n){
+  [...stepper.children].forEach(el=>{
+    const i = +el.dataset.i;
+    el.classList.toggle('active', i===n);
+    el.classList.toggle('done', i<n);
+  });
+}
+function resetStepper(){ [...stepper.children].forEach(el=>el.classList.remove('active','done')); }
+
+function addBot(text){
+  const m = document.createElement('div'); m.className='msg bot';
+  m.innerHTML = `<div class="av">🤖</div><div class="bubble">${text}</div>`;
+  chat.appendChild(m); scrollDown();
+}
+function addUser(text){
+  const m = document.createElement('div'); m.className='msg user';
+  m.innerHTML = `<div class="av">👤</div><div class="bubble">${text}</div>`;
+  chat.appendChild(m); scrollDown();
+}
+function addUserImg(label){
+  const m = document.createElement('div'); m.className='msg user';
+  m.innerHTML = `<div class="av">👤</div><div class="img-bubble">🖼️<small>${label}</small></div>`;
+  chat.appendChild(m); scrollDown();
+}
+function addResult(text){
+  const d = document.createElement('div'); d.className='result-tip'; d.innerText=text;
+  chat.appendChild(d); scrollDown();
+}
+function addCard(c){
+  const rows = c.rows.map(r=>`<div class="row"><div class="k">${r[0]}</div><div class="v">${r[1]}</div></div>`).join('');
+  const track = c.track.map((t,i)=>`<div class="ts ${i<=c.on?'on':''}"><div class="d"></div>${t}</div>`).join('');
+  const d = document.createElement('div'); d.className='card';
+  d.innerHTML = `
+    <div class="card-h"><div class="t">📄 ${c.title}</div><div class="no">${c.no}</div></div>
+    <div class="card-b">
+      <div style="margin-bottom:8px"><span class="badge ${c.status[0]}">${c.status[1]}</span></div>
+      ${rows}
+    </div>
+    <div class="track">${track}</div>`;
+  chat.appendChild(d); scrollDown();
+}
+function addAvailPanel(a){
+  const secs = a.sections.map(s=>{
+    const slots = s.slots.map(x=>`<div class="slot"><span class="nm">${x.nm}</span><span class="st ${x.st}">${x.label}</span></div>`).join('');
+    return `<div style="font-weight:600;color:#555;margin:6px 0 4px">${s.name}</div>${slots}`;
+  }).join('');
+  const d=document.createElement('div'); d.className='avail-card';
+  d.innerHTML=`<div class="ac-h">${a.title}</div><div class="ac-b">${secs}</div>${a.tip?`<div class="mc-tip">${a.tip}</div>`:''}`;
+  chat.appendChild(d); scrollDown();
+}
+function addMenuPanel(m){
+  const cats = m.cats.map(c=>`<div class="cat">${c.name}</div><div class="items">${c.items}</div>`).join('');
+  const d=document.createElement('div'); d.className='menu-card';
+  d.innerHTML=`<div class="mc-h ${m.type==='white'?'white':''}">${m.title}</div><div class="mc-b">${cats}</div>${m.tip?`<div class="mc-tip">${m.tip}</div>`:''}`;
+  chat.appendChild(d); scrollDown();
+}
+function addInfoPanel(p){
+  let body='';
+  if(p.body) body=`<div class="ip-b">${p.body}</div>`;
+  if(p.cadres) body=`<div class="ip-b">${p.cadres.map(c=>`<div class="cadre"><div class="av">${c.av}</div><div class="info"><div class="n">${c.name}</div><div class="r">${c.role} · ${c.phone}</div></div></div>`).join('')}</div>`;
+  if(p.communities) body=`<div class="ip-b">${p.communities.map(c=>`<div class="comm"><b>${c.name}</b> · 网格长 ${c.lead} · ${c.households}</div>`).join('')}</div>`;
+  const d=document.createElement('div'); d.className='info-panel';
+  d.innerHTML=`<div class="ip-h"><div class="t">${p.title}</div><div class="s">${p.sub||''}</div></div>${body}`;
+  chat.appendChild(d); scrollDown();
+}
+function addMedSlots(m){
+  const rows = m.slots.map(s=>`<div class="slot-row"><span>${s.nm}</span><span class="st ${s.st}">${s.label}</span></div>`).join('');
+  const d=document.createElement('div'); d.className='med-slots';
+  d.innerHTML=`<div class="ms-h">${m.title}</div><div class="ms-b">${rows}</div>`;
+  chat.appendChild(d); scrollDown();
+}
+async function addTyping(){
+  const m = document.createElement('div'); m.className='msg bot typing';
+  m.innerHTML = `<div class="av">🤖</div><div class="bubble"><div class="dots"><i></i><i></i><i></i></div></div>`;
+  chat.appendChild(m); scrollDown();
+  return m;
+}
+function waitOptions(opts, pick){
+  return new Promise(resolve=>{
+    const box = document.createElement('div'); box.className='options';
+    opts.forEach(o=>{
+      const b = document.createElement('div'); b.className='opt'; b.innerText=o;
+      b.onclick = ()=>{ box.remove(); addUser(o); resolve(o); };
+      box.appendChild(b);
+    });
+    chat.appendChild(box); scrollDown();
+    // 自动演示：若用户不点，几秒后自动选推荐项
+    const auto = setTimeout(()=>{
+      if(document.body.contains(box)){ box.remove(); addUser(pick||opts[0]); resolve(pick||opts[0]); }
+    }, 3500);
+    box.dataset.auto = auto;
+  });
+}
+
+async function runSteps(sc, my){
+  const ctx = {};
+  const labels = {};
+  sc.steps.forEach((n, i) => { if(n.label) labels[n.label] = i; });
+  for(let i = 0; i < sc.steps.length; i++){
+    const node = sc.steps[i];
+    if(my!==aborter) return;
+    if(node.label) continue;
+    if('goto' in node){
+      const target = typeof node.goto === 'function' ? node.goto(ctx) : node.goto;
+      if(target && labels[target] != null) i = labels[target] - 1;
+      continue;
+    }
+    if('step' in node){ setStep(node.step); await sleep(350); continue; }
+    if(node.botFn){
+      const text = node.botFn(ctx);
+      const t=await addTyping(); await sleep(700); if(my!==aborter){t.remove();return;} t.remove();
+      addBot(text); await sleep(650); continue;
+    }
+    if(node.bot){ const t=await addTyping(); await sleep(700); if(my!==aborter){t.remove();return;} t.remove(); addBot(node.bot); await sleep(650); continue; }
+    if(node.userFn){ await sleep(500); addUser(node.userFn(ctx)); await sleep(500); continue; }
+    if(node.user){ await sleep(500); addUser(node.user); await sleep(500); continue; }
+    if(node.img){ await sleep(500); addUserImg(node.img); await sleep(600); continue; }
+    if(node.opts){
+      const t=await addTyping(); await sleep(500); t.remove();
+      const picked = await waitOptions(node.opts, node.pick);
+      if(my!==aborter) return;
+      if(node.as) ctx[node.as] = picked;
+      if(picked && picked.includes('照片') && !picked.includes('暂无')){
+        await sleep(300); addUserImg('现场照片');
+      }
+      await sleep(400); continue;
+    }
+    if(node.cardFn){ await sleep(300); addCard(node.cardFn(ctx)); await sleep(700); continue; }
+    if(node.card){ await sleep(300); addCard(node.card); await sleep(700); continue; }
+    if(node.avail){ await sleep(300); addAvailPanel(node.avail); await sleep(800); continue; }
+    if(node.menu){ await sleep(300); addMenuPanel(node.menu); await sleep(800); continue; }
+    if(node.infoPanelFn){
+      const panel = node.infoPanelFn(ctx);
+      if(panel){ await sleep(300); addInfoPanel(panel); await sleep(800); }
+      continue;
+    }
+    if(node.infoPanel){ await sleep(300); addInfoPanel(node.infoPanel); await sleep(800); continue; }
+    if(node.medSlotsFn){ await sleep(300); addMedSlots(node.medSlotsFn(ctx)); await sleep(800); continue; }
+    if(node.medSlots){ await sleep(300); addMedSlots(node.medSlots); await sleep(800); continue; }
+    if(node.resultFn){ await sleep(300); addResult(node.resultFn(ctx)); await sleep(700); continue; }
+    if(node.result){ await sleep(300); addResult(node.result); await sleep(700); continue; }
+  }
+  playing=false;
+  showHint('✅ 演示完成，可选其它场景');
+}
+
+async function play(key){
+  const sc = scenarios[key]; if(!sc) return;
+  const my = ++aborter; playing = true; setPageUI('chat');
+  chat.innerHTML=''; resetStepper(); addTimeTip();
+  addUser(`${sc.icon} ${sc.name}`);
+  await sleep(400); if(my!==aborter) return;
+  await runSteps(sc, my);
+}
+
+/* ============ 日期 / 时间 / 节气（本地实时计算） ============ */
+const WEEKDAYS_CN = ['日','一','二','三','四','五','六'];
+const TERM_NAMES = ['小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种','夏至','小暑','大暑','立秋','处暑','白露','秋分','寒露','霜降','立冬','小雪','大雪','冬至'];
+const TERM_DAYS_BY_YEAR = {
+  2024:[6,20,4,19,5,20,4,19,5,20,5,21,6,22,7,22,7,22,7,23,7,22,7,21],
+  2025:[5,20,3,18,5,20,4,20,5,21,5,21,7,22,7,23,7,23,8,23,7,22,7,21],
+  2026:[5,20,4,18,5,20,5,20,5,21,5,21,7,23,7,23,7,23,8,23,7,22,7,22],
+  2027:[5,20,3,18,5,20,4,20,5,21,5,21,7,23,7,23,7,23,8,23,7,22,7,22],
+  2028:[6,20,4,19,5,20,4,19,5,20,5,21,6,22,7,22,7,22,7,23,7,22,6,21],
+};
+const TERM_APPROX = [[1,5],[1,20],[2,4],[2,19],[3,6],[3,21],[4,5],[4,20],[5,6],[5,21],[6,6],[6,21],[7,7],[7,23],[8,8],[8,23],[9,8],[9,23],[10,8],[10,23],[11,7],[11,22],[12,7],[12,22]];
+const TERM_TIPS = {
+  小寒:'进入一年中较冷时段，注意防寒保暖，保护越冬作物与禽畜。',
+  大寒:'全年最冷阶段，做好防冻；囤贮饲料，检修棚舍。',
+  立春:'春季开始，可准备春耕农具与种子，留意倒春寒。',
+  雨水:'降水渐多，适宜整地育苗；注意田间排水。',
+  惊蛰:'气温回升，虫害开始活动，注意防范；春播陆续展开。',
+  春分:'昼夜等长，适宜春播与植树；田间管理要跟上。',
+  清明:'春耕春种关键期，注意防火；适时移栽水稻、播种旱作。',
+  谷雨:'雨生百谷，抓紧播种与施肥；注意防渍。',
+  立夏:'进入夏季，作物旺盛生长，注意灌水与病虫害。',
+  小满:'夏收作物籽粒渐满，做好田间管理与防干热风。',
+  芒种:'有芒作物收获、夏种忙季，抢收抢种两不误。',
+  夏至:'昼最长，注意防暑；水稻等作物加强水肥管理。',
+  小暑:'天气渐热，浅水护苗；中耕除草，注意病虫害。',
+  大暑:'一年中最热时段，注意防暑补水；水稻护苗，瓜果防病虫害。',
+  立秋:'虽入秋仍可能「秋老虎」，早晚温差加大；晚稻加强管理。',
+  处暑:'暑气渐消，适宜秋收准备与秋播蔬菜。',
+  白露:'夜凉露重，注意添衣；晚稻抽穗期管好水肥。',
+  秋分:'昼夜再等长，秋收秋种忙；做好晾晒与储粮。',
+  寒露:'气温下降明显，抓紧秋收；注意霜冻防护。',
+  霜降:'初霜将至，收完晚茬；保护大棚与越冬作物。',
+  立冬:'冬季开始，做好防寒；冬小麦等查苗补苗。',
+  小雪:'降水偏少、气温低，注意棚舍保温与水管防冻。',
+  大雪:'农事趋闲，积肥整地；关注道路积雪与出行安全。',
+  冬至:'昼最短，进补与防寒；做好越冬作物管理。'
+};
+function termStartDate(year, index){
+  const days = TERM_DAYS_BY_YEAR[year];
+  const month = TERM_APPROX[index][0];
+  const day = days ? days[index] : TERM_APPROX[index][1];
+  return new Date(year, month - 1, day);
+}
+function formatChineseDate(now){
+  now = now || new Date();
+  return `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日，星期${WEEKDAYS_CN[now.getDay()]}`;
+}
+function formatChineseTime(now){
+  now = now || new Date();
+  return `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+}
+function getSolarTerm(now){
+  now = now || new Date();
+  const y = now.getFullYear();
+  const today = new Date(y, now.getMonth(), now.getDate());
+  const starts = [];
+  starts.push({ name:'冬至', date: termStartDate(y-1, 23), tip: TERM_TIPS['冬至'] });
+  for(let i=0;i<24;i++) starts.push({ name: TERM_NAMES[i], date: termStartDate(y, i), tip: TERM_TIPS[TERM_NAMES[i]] });
+  starts.push({ name:'小寒', date: termStartDate(y+1, 0), tip: TERM_TIPS['小寒'] });
+  let curIdx = 0;
+  for(let i=0;i<starts.length;i++){ if(starts[i].date.getTime() <= today.getTime()) curIdx = i; else break; }
+  return { current: starts[curIdx].name, since: starts[curIdx].date, next: starts[curIdx+1].name, nextDate: starts[curIdx+1].date, tip: starts[curIdx].tip };
+}
+function answerDateTime(text){
+  const now = new Date();
+  const askTime = /(现在几点|几点了|几点钟|现在什么时候|现在的时间|报时)/.test(text);
+  const askWeekday = /(星期几|周几|礼拜几)/.test(text);
+  const askDate = /(今天几号|今天是几号|几号了|几月几|今天日期|今天是什么日子|日期是多少|今天是几月|几号)/.test(text) || /^(日期|今天)$/.test(text.trim());
+  if(!askTime && !askWeekday && !askDate) return null;
+  const dateStr = formatChineseDate(now);
+  if(askTime && !askDate && !askWeekday) return `现在是 ${formatChineseTime(now)}（${dateStr}）。`;
+  if(askTime) return `今天是 ${dateStr}，现在 ${formatChineseTime(now)}。`;
+  if(askWeekday && !askDate) return `今天是星期${WEEKDAYS_CN[now.getDay()]}（${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日）。`;
+  return `今天是 ${dateStr}。`;
+}
+function answerSolarTerm(text){
+  if(!/(节气|二十四节气)/.test(text)) return null;
+  const info = getSolarTerm();
+  const since = `${info.since.getMonth()+1}月${info.since.getDate()}日`;
+  const next = `${info.nextDate.getMonth()+1}月${info.nextDate.getDate()}日`;
+  return `今天是 ${formatChineseDate()}。\n当前节气是「${info.current}」（自 ${since} 起）。\n下一个节气是「${info.next}」（约 ${next}）。\n农事小贴士：${info.tip}`;
+}
+function isDailyFactQuestion(t){
+  return !!(answerDateTime(t) || answerSolarTerm(t) || /(天气|气温|温度|下雨|冷不冷|热不热|穿什么|紫外线)/.test(t));
+}
+
+/* ============ 意图识别（自由说话 / 打字） ============ */
+function recognizeIntent(t){
+  if(/(怎么保存|如何保存|怎样保存|怎么放|放多久|小知识)/.test(t)) return null;
+  if(isDailyFactQuestion(t)) return null;
+  const map = [
+    ['village',['村务','村支书','村干部','村规','村约','龙溪村','村务公开','网格长','班子成员']],
+    ['medical',['挂号','预约','医院','看病','卫生院','科室','号源','内科','中医']],
+    ['health', ['健康','血压','血糖','头疼','头痛','发烧','咳嗽','用药','体检','症状']],
+    ['hall',   ['礼堂','红白','婚宴','寿宴','满月','白事','追悼','告别','酒席','办酒','包场','文化礼堂','厨师','配菜','宴席','结婚酒','出殡']],
+    ['skill',  ['技能','培训','电商','手艺','手工艺','直播','短视频','学什么','电脑']],
+    ['repair', ['路灯','灯不亮','不亮','坏了','故障','报修','健身器材','器材','监控','水管']],
+    ['problem',['垃圾','脏','乱堆','乱倒','噪音','扰民','违建','纠纷','坑','污水','臭','曝光']],
+    ['sell',   ['卖','出售','上架','板栗','蔬菜','土鸡蛋','农产品','闲置','手工','特产']],
+    ['policy', ['补贴','政策','低保','医保','扶持','创业','申请条件','惠农','补助']],
+    ['job',    ['工作','招聘','找活','求职','兼职','上班','用工','招工','打工','岗位']],
+    ['meal',   ['订餐','老年餐','食堂','惠餐','送餐','老年食堂']],
+    ['help',   ['帮忙','搬','借个','借一下','互助','搭把手','照看','帮我抬']],
+  ];
+  for(const [k,ws] of map){ if(ws.some(w=>t.includes(w))) return k; }
+  return null;
+}
+
+async function sendText(text){
+  text = (text||'').trim(); if(!text) return;
+  const my = ++aborter; playing = true; setPageUI('chat');
+  chat.innerHTML=''; resetStepper(); addTimeTip();
+  addUser(text);
+  await sleep(450); if(my!==aborter) return;
+
+  // 查工单进度（单号或明确查进度话术）
+  const orderById = myOrders.find(o=>text.includes(o.id));
+  const askProgress = /进度|处理了吗|办好了吗|审核了吗|到哪一步/.test(text);
+  if(orderById || (askProgress && !weatherWords.some(w=>text.includes(w)))){
+    const hit = orderById || myOrders.find(o=>o.status!=='ok') || myOrders[0];
+    if(hit){
+      const t=await addTyping(); await sleep(700); if(my!==aborter){t.remove();return;} t.remove();
+      addBot(`帮您查到工单 ${hit.id} 的最新进度 👇`);
+      addCard({
+        title: hit.title, no: hit.id, status: [hit.status, hit.statusText],
+        rows: hit.detail.rows.slice(0,4),
+        track: hit.detail.timeline.map(x=>x.txt), on: hit.detail.timeline.findIndex(x=>x.cur)
+      });
+      addResult(`📍 当前状态：${hit.statusText}\n${hit.summary}`);
+      playing=false; return;
+    }
+  }
+
+  const key = recognizeIntent(text);
+  if(!key){
+    await answerGeneral(text, my);
+    return;
+  }
+  const sc = scenarios[key];
+  const t=await addTyping(); await sleep(850); if(my!==aborter){t.remove();return;} t.remove();
+  addBot(`🔍 听懂啦～您是想「${sc.name}」，我来帮您办理 👇`);
+  setStep(1); await sleep(650); if(my!==aborter) return;
+  await runSteps(sc, my);
+}
+
+function offerAllScenarios(){
+  const box=document.createElement('div'); box.className='options';
+  Object.entries(scenarios).forEach(([k,s])=>{
+    const b=document.createElement('div'); b.className='opt'; b.innerText=`${s.icon} ${s.name}`;
+    b.onclick=()=>{ box.remove(); play(k); };
+    box.appendChild(b);
+  });
+  chat.appendChild(box); scrollDown();
+}
+
+/* ============ 通用问答 / 天气 / 本地事实 ============ */
+// 问候语
+const greetWords = ['你好','您好','在吗','在不在','早上好','晚上好','谢谢','多谢','再见'];
+// 常识/百科知识库（演示用；日期/节气由本地实时计算，不再用写死答案）
+const knowledgeBase = [
+  { ws:['板栗','栗子'], title:'🌰 板栗保存小知识',
+    ans:'新鲜板栗保存方法：\n1. 阴凉通风处摊开晾 2～3 天，去掉表面水汽\n2. 装进透气网袋，放冰箱冷藏可存 1～2 个月\n3. 想长期保存可煮熟去壳后冷冻\n注意：不要密封在塑料袋里，容易发霉。' },
+  { ws:['鸡蛋','土鸡蛋','保存','放多久'], title:'🥚 鸡蛋保存',
+    ans:'土鸡蛋常温可放约 2 周，冰箱冷藏可放 30～40 天。\n小窍门：大头朝上竖着放更耐存；不要清洗后再存放，会破坏蛋壳保护膜。' },
+  { ws:['高速','免费','节假日','假期'], title:'🚗 高速免费政策',
+    ans:'根据现行规定，春节、清明、劳动节、国庆四个法定节假日，7 座及以下小客车走高速免收通行费，以车辆驶离出口时间为准。' },
+  { ws:['感冒','发烧','咳嗽','头疼','头痛'], title:'💊 健康小提示',
+    ans:'普通感冒建议多休息、多喝温水、清淡饮食。\n若出现持续高烧（38.5℃以上超过 2 天）、呼吸困难等情况，请及时到镇卫生院或村卫生室就诊。\n（如需要，我也可以帮您做「健康导引」预约）' },
+];
+// 天气关键词
+const weatherWords = ['天气','气温','温度','下雨','会不会下','冷不冷','热不热','穿什么','紫外线','有没有雨','晴','阴'];
+
+async function answerGeneral(text, my){
+  // 1) 问候
+  if(greetWords.some(w=>text.includes(w))){
+    const t=await addTyping(); await sleep(600); if(my!==aborter){t.remove();return;} t.remove();
+    addBot('您好呀！我是 AI 村小二 😊\n除了帮您办村里的事，也能陪您聊聊天、查天气、问百科常识。您想了解点什么？');
+    playing=false; addQuickAsks(); return;
+  }
+  // 2) 天气（Open-Meteo 实时；定位失败默认长兴）
+  if(weatherWords.some(w=>text.includes(w))){
+    await addSearching('正在获取实时天气', my); if(my!==aborter) return;
+    await addWeatherCard(); if(my!==aborter) return;
+    await sleep(400); if(my!==aborter) return;
+    addBot('需要我帮您查别的日期，或看看农事建议吗？');
+    playing=false; return;
+  }
+  // 3) 日期 / 时间 / 节气（本地实时）
+  const dateAns = answerDateTime(text);
+  if(dateAns){
+    await addSearching('正在查询', my); if(my!==aborter) return;
+    addBot(dateAns);
+    await sleep(300); if(my!==aborter) return;
+    addBot('办村里的事也可以直接跟我说～');
+    playing=false; return;
+  }
+  const termAns = answerSolarTerm(text);
+  if(termAns){
+    await addSearching('正在查询', my); if(my!==aborter) return;
+    addBot(termAns);
+    await sleep(300); if(my!==aborter) return;
+    addBot('办村里的事也可以直接跟我说～');
+    playing=false; return;
+  }
+  // 4) 常识 / 百科
+  const kb = knowledgeBase.find(k=>k.ws.some(w=>text.includes(w)));
+  if(kb){
+    await addSearching('正在检索', my); if(my!==aborter) return;
+    addKnowledge(kb.title, kb.ans, '来源：村知识库');
+    await sleep(400); if(my!==aborter) return;
+    addBot('还有什么想了解的？办村里的事也可以直接跟我说～');
+    playing=false; return;
+  }
+  // 5) 诚实兜底（不再返回「正式版将接入」占位文案）
+  const t=await addTyping(); await sleep(700); if(my!==aborter){t.remove();return;} t.remove();
+  addBot('这个问题我暂时答不准，您可以换个问法，或告诉我要办的事（报修、反映问题、问政策等）。也可以点选下面的事项：');
+  playing=false; offerAllScenarios();
+}
+
+async function addSearching(label, my){
+  const t=await addTyping(); await sleep(500); t.remove();
+  const d=document.createElement('div'); d.className='searching';
+  d.innerHTML=`<span class="spin"></span> 🔍 ${label}…`;
+  chat.appendChild(d); scrollDown();
+  await sleep(1100); if(my!==aborter){ d.remove(); return; }
+  d.remove();
+}
+
+function addKnowledge(title, body, source){
+  const m=document.createElement('div'); m.className='msg bot';
+  m.innerHTML=`<div class="av">🤖</div><div class="bubble"><span class="kb-title">${title}</span>${body}<span class="src">${source}</span></div>`;
+  chat.appendChild(m); scrollDown();
+}
+
+const WX_DEFAULT={name:'长兴',lat:31.026,lon:119.91};
+const WMO_MAP={
+  0:['晴','☀️'],1:['大部晴朗','🌤️'],2:['多云','⛅'],3:['阴','☁️'],
+  45:['有雾','🌫️'],48:['雾凇','🌫️'],51:['小毛毛雨','🌦️'],53:['毛毛雨','🌦️'],55:['大毛毛雨','🌧️'],
+  61:['小雨','🌧️'],63:['中雨','🌧️'],65:['大雨','🌧️'],71:['小雪','🌨️'],73:['中雪','🌨️'],75:['大雪','❄️'],
+  80:['阵雨','🌦️'],81:['强阵雨','🌧️'],82:['暴雨','⛈️'],95:['雷阵雨','⛈️'],96:['雷阵雨伴冰雹','⛈️'],99:['强雷暴冰雹','⛈️']
+};
+function wxResolveLoc(){
+  return new Promise(resolve=>{
+    if(!navigator.geolocation){ resolve({...WX_DEFAULT}); return; }
+    let done=false;
+    const finish=loc=>{ if(done) return; done=true; resolve(loc); };
+    const t=setTimeout(()=>finish({...WX_DEFAULT}),4000);
+    navigator.geolocation.getCurrentPosition(
+      p=>{ clearTimeout(t); finish({name:'当前位置',lat:p.coords.latitude,lon:p.coords.longitude}); },
+      ()=>{ clearTimeout(t); finish({...WX_DEFAULT}); },
+      {enableHighAccuracy:false,timeout:3800,maximumAge:600000}
+    );
+  });
+}
+function wxDir(deg){ const d=['北','东北','东','东南','南','西南','西','西北']; return d[Math.round(deg/45)%8]+'风'; }
+function wxLevel(kmh){ if(kmh<1)return 0; if(kmh<6)return 1; if(kmh<12)return 2; if(kmh<20)return 3; if(kmh<29)return 4; if(kmh<39)return 5; return 6; }
+function wxTip(code,temp){
+  if([61,63,65,80,81,82,95,96,99].includes(code)) return '☔ 有雨，出门记得带伞；暂缓晾晒与田间作业。';
+  if([71,73,75,85,86].includes(code)) return '❄️ 有雪或道路湿滑，注意保暖与出行安全。';
+  if(temp>=33) return '🥵 天气较热，注意防暑补水，午间少做户外重活。';
+  if(temp<=5) return '🧥 天气较冷，注意添衣保暖，保护作物与禽畜。';
+  if([0,1,2].includes(code)) return '👕 天气不错，适合晾晒农作物和户外农事。';
+  return '🌤️ 注意关注天气变化，合理安排农事与出行。';
+}
+async function addWeatherCard(){
+  const m=document.createElement('div'); m.className='weather-card';
+  m.innerHTML=`
+    <div class="wc-h"><div><div class="loc">📍 定位中…</div><div class="date">正在获取实时天气</div></div><div class="ic">⏳</div></div>
+    <div class="wc-temp" style="font-size:16px;font-weight:500">加载中…</div>
+    <div class="wc-src">数据来源：Open-Meteo 实时天气</div>`;
+  chat.appendChild(m); scrollDown();
+  try{
+    const loc=await wxResolveLoc();
+    const qs=new URLSearchParams({
+      latitude:String(loc.lat),longitude:String(loc.lon),
+      current:'temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m',
+      daily:'temperature_2m_max,temperature_2m_min',timezone:'Asia/Shanghai',forecast_days:'1'
+    });
+    const r=await fetch('https://api.open-meteo.com/v1/forecast?'+qs);
+    if(!r.ok) throw new Error('fail');
+    const data=await r.json();
+    const c=data.current;
+    const code=c.weather_code|0;
+    const [cond,emoji]=WMO_MAP[code]||['未知','🌡️'];
+    const temp=Math.round(c.temperature_2m);
+    const hi=data.daily?.temperature_2m_max?.[0];
+    const lo=data.daily?.temperature_2m_min?.[0];
+    const range=(hi!=null&&lo!=null)?`<span>🌡️ ${Math.round(lo)}~${Math.round(hi)}℃</span>`:'';
+    m.innerHTML=`
+      <div class="wc-h">
+        <div><div class="loc">📍 ${loc.name}</div><div class="date">实时</div></div>
+        <div class="ic">${emoji}</div>
+      </div>
+      <div class="wc-temp">${temp}℃ <small>${cond}</small></div>
+      <div class="wc-meta">${range}<span>💨 ${wxDir(c.wind_direction_10m)} ${wxLevel(c.wind_speed_10m)}级</span><span>💧 湿度 ${Math.round(c.relative_humidity_2m)}%</span></div>
+      <div class="wc-tip">${wxTip(code,c.temperature_2m)}</div>
+      <div class="wc-src">数据来源：Open-Meteo 实时天气</div>`;
+  }catch(e){
+    m.innerHTML=`
+      <div class="wc-h"><div><div class="loc">📍 天气</div><div class="date">实时</div></div><div class="ic">🌡️</div></div>
+      <div class="wc-temp" style="font-size:16px;font-weight:500">暂时查不到天气，请稍后再试</div>
+      <div class="wc-src">数据来源：Open-Meteo 实时天气</div>`;
+  }
+  scrollDown();
+}
+
+function addQuickAsks(){
+  const box=document.createElement('div'); box.className='options';
+  ['今天天气怎么样','今天几号','现在是什么节气','板栗怎么保存'].forEach(q=>{
+    const b=document.createElement('div'); b.className='opt'; b.innerText=q;
+    b.onclick=()=>{ box.remove(); sendText(q); };
+    box.appendChild(b);
+  });
+  chat.appendChild(box); scrollDown();
+}
+
+/* ============ 语音输入（模拟 ASR） ============ */
+const voiceSamples = [
+  '村口的垃圾桶满了好几天没人清',
+  '3组路灯坏了，晚上黑漆漆的',
+  '我家板栗熟了想卖一些',
+  '养鸡有没有什么补贴政策',
+  '明天食堂中午有什么菜',
+  '明天要搬衣柜想找人帮忙',
+  '7月15号想办寿宴，帮我在文化礼堂约一下',
+  '父亲过世了，想约礼堂和厨师办白事',
+  '帮我在卫生院挂个内科号',
+  '龙溪村村支书是谁',
+];
+function startVoice(){
+  const listen=document.getElementById('listen');
+  const mic=document.getElementById('micBtn');
+  listen.classList.add('show'); mic.classList.add('rec');
+  setTimeout(()=>{
+    listen.classList.remove('show'); mic.classList.remove('rec');
+    const s = voiceSamples[Math.floor(Math.random()*voiceSamples.length)];
+    sendText(s);
+  }, 1800);
+}
+
+/* ============ 附件上传 ============ */
+async function handleAttachment(url, name){
+  const my=++aborter; playing=true; setPageUI('chat');
+  chat.innerHTML=''; resetStepper(); addTimeTip();
+  addUserRealImg(url, name);
+  await sleep(500); if(my!==aborter) return;
+  const t=await addTyping(); await sleep(900); if(my!==aborter){t.remove();return;} t.remove();
+  addBot('收到您的图片啦～请问这张照片是要办哪件事？');
+  playing=false;
+  const box=document.createElement('div'); box.className='options';
+  [['problem','📋 反映问题'],['repair','🔧 设施报修'],['hall','🏛️ 礼堂预约'],['skill','🎓 技能咨询'],['medical','🏥 医疗挂号'],['village','🏘️ 村务公开'],['sell','🌾 卖农产品']].forEach(([k,label])=>{
+    const b=document.createElement('div'); b.className='opt'; b.innerText=label;
+    b.onclick=()=>{ box.remove(); play(k); };
+    box.appendChild(b);
+  });
+  chat.appendChild(box); scrollDown();
+}
+function addUserRealImg(url, name){
+  const m=document.createElement('div'); m.className='msg user';
+  m.innerHTML=`<div class="av">👤</div><div class="img-bubble"><img src="${url}" alt=""><small>${name||'照片'}</small></div>`;
+  chat.appendChild(m); scrollDown();
+}
+
+function addTimeTip(){
+  const t = document.createElement('div'); t.className='time-tip'; t.innerText='今天 9:00';
+  chat.appendChild(t);
+}
+function showHint(txt){ hint.innerText=txt; hint.classList.add('show'); setTimeout(()=>hint.classList.remove('show'),2200); }
+
+/* ================== 我的 · 工单记录 ================== */
+const stepperEl = document.getElementById('stepper');
+const inputbarEl = document.getElementById('inputbar');
+const backBtn = document.getElementById('backBtn');
+
+const myOrders = [
+  { id:'LT20260715088', cat:'book', icon:'🏛️', title:'文化礼堂预约', type:'红事寿宴 · 7月15日中午',
+    status:'wait', statusText:'待确认', time:'2026-07-08 09:12',
+    summary:'18桌 · 张师傅+李帮厨 · 去虾加土鹅',
+    detail:{ rows:[['类型','红事宴席（寿宴）'],['日期','7月15日 中午 11:00-14:00'],['场地','文化礼堂 · 已预留'],['规模','18桌 · 约180人'],['厨师','张师傅 + 李帮厨'],['菜单','标准套餐（2桌清淡）'],['费用','约 9000元（待确认）']],
+      timeline:[{t:'2026-07-08 09:12', txt:'提交预约申请', cur:true},{t:'—', txt:'村委确认档期'},{t:'—', txt:'预约成功，推送进场须知'}] }},
+  { id:'GH20260709001', cat:'book', icon:'🏥', title:'医疗挂号', type:'小浦镇卫生院 · 内科',
+    status:'ok', statusText:'已预约', time:'2026-07-08 10:30',
+    summary:'7月9日上午 · 15号 · 带好医保卡',
+    detail:{ rows:[['医院','小浦镇卫生院'],['科室','内科'],['时间','7月9日 上午 9:30'],['序号','15号（预估）'],['就诊人','张大叔 138****1234']],
+      timeline:[{t:'2026-07-08 10:30', txt:'挂号成功'},{t:'2026-07-08 18:00', txt:'就诊前 1 天提醒', cur:true},{t:'—', txt:'到院取号就诊'}] }},
+  { id:'FK20260708001', cat:'feedback', icon:'📋', title:'问题反馈', type:'环境卫生 · 垃圾桶满溢',
+    status:'ok', statusText:'已完成', time:'2026-07-06 14:30',
+    summary:'村口公交站旁 · 已清理完毕',
+    detail:{ rows:[['类型','环境卫生'],['位置','村口公交站旁'],['处理人','村委小张'],['结果','垃圾桶已清空，增设临时投放点']],
+      timeline:[{t:'2026-07-06 14:30', txt:'提交反馈'},{t:'2026-07-06 16:00', txt:'已受理，派单处理'},{t:'2026-07-07 10:20', txt:'处理完成，上传现场照片', cur:true}] }},
+  { id:'SP20260708002', cat:'product', icon:'🌾', title:'商品上架', type:'新鲜板栗 · 8元/斤',
+    status:'ok', statusText:'已上架', time:'2026-07-05 11:00',
+    summary:'约200斤 · 已在村民商城展示',
+    detail:{ rows:[['商品','新鲜板栗'],['数量','约 200 斤'],['价格','8 元/斤'],['审核','已通过'],['展示','村民商城 · 浏览 36 次']],
+      timeline:[{t:'2026-07-05 11:00', txt:'提交上架申请'},{t:'2026-07-05 15:30', txt:'审核通过'},{t:'2026-07-05 16:00', txt:'已上架村民商城', cur:true}] }},
+  { id:'BX20260708014', cat:'feedback', icon:'🔧', title:'设施报修', type:'路灯故障 · 3组文化礼堂',
+    status:'doing', statusText:'维修中', time:'2026-07-07 18:45',
+    summary:'夜间不亮 · 电工王师傅已接单',
+    detail:{ rows:[['设施','路灯（3组文化礼堂门口）'],['故障','夜间不亮'],['维修人','电工王师傅'],['预计','7月9日前完成']],
+      timeline:[{t:'2026-07-07 18:45', txt:'提交报修'},{t:'2026-07-07 19:10', txt:'已派单给王师傅'},{t:'2026-07-08 08:00', txt:'维修中，已采购配件', cur:true}] }},
+  { id:'DC20260708021', cat:'book', icon:'🍚', title:'老年订餐', type:'7月9日 午餐 · 红烧肉套餐',
+    status:'ok', statusText:'已取餐', time:'2026-07-07 08:20',
+    summary:'1份 · 老年活动室取餐',
+    detail:{ rows:[['日期','7月9日 午餐'],['套餐','红烧肉套餐 ×1'],['金额','5 元'],['取餐','老年活动室 11:30']],
+      timeline:[{t:'2026-07-07 08:20', txt:'预订成功'},{t:'2026-07-09 10:30', txt:'备餐提醒'},{t:'2026-07-09 11:35', txt:'已取餐', cur:true}] }},
+  { id:'QZ20260708009', cat:'other', icon:'💼', title:'求职登记', type:'农业基地管理员',
+    status:'doing', statusText:'已推荐', time:'2026-07-04 16:00',
+    summary:'简历已推荐给绿丰农业基地',
+    detail:{ rows:[['求职人','王伯 · 58岁'],['技能','驾驶 / 务农'],['意向岗位','农业基地管理员'],['推荐','绿丰农业基地']],
+      timeline:[{t:'2026-07-04 16:00', txt:'登记求职信息'},{t:'2026-07-05 09:00', txt:'匹配并推荐岗位', cur:true},{t:'—', txt:'等待企业联系面试'}] }},
+  { id:'HZ20260708031', cat:'other', icon:'🤝', title:'邻里互助', type:'搬运帮忙 · 2组',
+    status:'ok', statusText:'已完成', time:'2026-07-03 10:00',
+    summary:'王大哥已响应并完成互助',
+    detail:{ rows:[['类型','搬运帮忙'],['时间','7月3日上午'],['响应','王大哥（1组）'],['积分','双方各获 5 积分']],
+      timeline:[{t:'2026-07-03 10:00', txt:'发布互助需求'},{t:'2026-07-03 10:05', txt:'王大哥响应'},{t:'2026-07-03 12:00', txt:'互助完成', cur:true}] }},
+];
+
+const myTabs = [
+  { key:'all', label:'全部' },
+  { key:'book', label:'预约' },
+  { key:'feedback', label:'反馈/报修' },
+  { key:'product', label:'上架' },
+  { key:'other', label:'其它' },
+];
+
+function setPageUI(mode){
+  stepperEl.style.display = mode === 'chat' ? 'flex' : 'none';
+  inputbarEl.style.display = (mode === 'home' || mode === 'chat') ? 'flex' : 'none';
+  chat.classList.toggle('my-view', mode === 'my');
+  if(backBtn) backBtn.classList.toggle('show', mode !== 'home');
+}
+
+function statusBadge(st, text){
+  const cls = st==='ok'?'ok':st==='doing'?'doing':'wait';
+  return `<span class="badge ${cls}">${text}</span>`;
+}
+
+function renderMyList(filter){
+  const list = filter==='all' ? myOrders : myOrders.filter(o=>o.cat===filter);
+  if(!list.length) return `<div class="my-empty"><div class="ic">📭</div>暂无此类记录</div>`;
+  return list.map(o=>`
+    <div class="my-item" onclick="showMyDetail('${o.id}')">
+      <div class="row1">
+        <div class="left"><span class="ic">${o.icon}</span><span class="tit">${o.title}</span></div>
+        ${statusBadge(o.status, o.statusText)}
+      </div>
+      <div class="row2">${o.id} · ${o.type}</div>
+      <div class="row3">${o.summary}</div>
+      <div class="time">${o.time}</div>
+    </div>`).join('');
+}
+
+function goMy(){
+  aborter++; playing=false; resetStepper(); setPageUI('my');
+  chat.innerHTML='';
+  const doing = myOrders.filter(o=>o.status==='doing'||o.status==='wait').length;
+  const wait = myOrders.filter(o=>o.status==='wait').length;
+  const ok = myOrders.filter(o=>o.status==='ok').length;
+  const page = document.createElement('div'); page.className='my-page'; page.id='myPage';
+  page.innerHTML = `
+    <div class="my-header">
+      <div class="uav">👤</div>
+      <div class="uinfo"><div class="name">张大叔</div><div class="u-tel">138****1234 · 老虎洞村 2组</div></div>
+    </div>
+    <div class="my-stats">
+      <div class="st"><div class="num">${doing}</div><div class="lbl">进行中</div></div>
+      <div class="st"><div class="num">${wait}</div><div class="lbl">待确认</div></div>
+      <div class="st"><div class="num">${ok}</div><div class="lbl">已完成</div></div>
+    </div>
+    <div class="my-tabs" id="myTabs">${myTabs.map((t,i)=>`<div class="tab${i===0?' on':''}" data-k="${t.key}">${t.label}</div>`).join('')}</div>
+    <div class="my-list" id="myList">${renderMyList('all')}</div>`;
+  chat.appendChild(page);
+  page.querySelectorAll('.my-tabs .tab').forEach(tab=>{
+    tab.onclick=()=>{
+      page.querySelectorAll('.my-tabs .tab').forEach(t=>t.classList.remove('on'));
+      tab.classList.add('on');
+      document.getElementById('myList').innerHTML = renderMyList(tab.dataset.k);
+    };
+  });
+  chat.scrollTop=0;
+}
+
+function showMyDetail(id){
+  const o = myOrders.find(x=>x.id===id); if(!o) return;
+  setPageUI('my');
+  chat.innerHTML='';
+  const page = document.createElement('div'); page.className='my-page';
+  const rows = o.detail.rows.map(r=>`<div class="md-row"><div class="k">${r[0]}</div><div class="v">${r[1]}</div></div>`).join('');
+  const timeline = o.detail.timeline.map(t=>`<div class="tl${t.cur?' cur':''}">${t.txt}<div class="ts">${t.t}</div></div>`).join('');
+  page.innerHTML = `
+    <div class="my-back" onclick="goMy()">← 返回我的工单</div>
+    <div class="my-detail">
+      <div class="md-h">
+        <div class="tit">${o.icon} ${o.title} ${statusBadge(o.status, o.statusText)}</div>
+        <div class="no">${o.id} · ${o.time}</div>
+      </div>
+      <div class="md-b">${rows}</div>
+      <div class="md-track"><div style="font-size:12px;font-weight:600;color:#555;margin-bottom:8px">处理进度</div>${timeline}</div>
+    </div>
+    <div class="options" style="margin-left:0;margin-top:14px">
+      <div class="opt" onclick="sendText('${o.id}进度怎么样了')">💬 问 AI 查进度</div>
+      <div class="opt" onclick="goHome()">🏠 回首页办事</div>
+    </div>`;
+  chat.appendChild(page);
+  chat.scrollTop=0;
+}
+
+/* ================== 首页 ================== */
+function renderHomeGrid(grid, showAll){
+  grid.innerHTML='';
+  grid.className = 'grid' + (showAll ? ' all-grid' : ' home-grid');
+  const keys = showAll ? Object.keys(scenarios) : homeFeatured;
+  keys.forEach(k=>{
+    const s=scenarios[k];
+    const g=document.createElement('div'); g.className='g';
+    g.innerHTML=`<span class="ic">${s.icon}</span><span class="nm">${s.name}</span>`;
+    g.onclick=()=>play(k);
+    grid.appendChild(g);
+  });
+  if(!showAll){
+    const more=document.createElement('div'); more.className='g more';
+    more.innerHTML='<span class="ic">➕</span><span class="nm">更多</span>';
+    more.onclick=()=>renderHomeGrid(grid, true);
+    grid.appendChild(more);
+  } else {
+    const less=document.createElement('div'); less.className='g more';
+    less.innerHTML='<span class="ic">⬆️</span><span class="nm">收起</span>';
+    less.onclick=()=>renderHomeGrid(grid, false);
+    grid.appendChild(less);
+  }
+}
+
+function goHome(){
+  aborter++; playing=false; resetStepper(); setPageUI('home');
+  chat.innerHTML='';
+  const w = document.createElement('div'); w.className='welcome';
+  w.innerHTML = `
+    <div class="hi"><div style="font-size:22px">🤖</div>
+      <div>您好，我是 <b>AI 村小二</b>，您的乡村生活助手！<br>
+      下面这些事我都能帮您办，点一下开始，或直接对我说话 👇</div>
+    </div>
+    <div class="grid home-grid" id="grid"></div>
+    <div class="ask-hi">💬 也可以随便问我：天气、节气农事、百科常识等日常问题，我联网帮您查～</div>
+    <div class="options" id="askChips" style="margin-left:0"></div>`;
+  chat.appendChild(w);
+  renderHomeGrid(w.querySelector('#grid'), false);
+  const chips = w.querySelector('#askChips');
+  ['今天天气怎么样','今天几号','现在是什么节气'].forEach(q=>{
+    const b=document.createElement('div'); b.className='opt'; b.innerText='💬 '+q;
+    b.onclick=()=>sendText(q);
+    chips.appendChild(b);
+  });
+}
+
+/* 左侧场景列表 */
+const scnList = document.getElementById('scnList');
+Object.entries(scenarios).forEach(([k,s])=>{
+  const it=document.createElement('div'); it.className='item';
+  it.innerHTML=`<span>${s.icon} ${s.name}</span><span class="tag">${s.tag}</span>`;
+  it.onclick=()=>play(k);
+  scnList.appendChild(it);
+});
+
+/* ============ 输入栏事件绑定 ============ */
+const txt = document.getElementById('txt');
+const sendBtn = document.getElementById('sendBtn');
+const micBtn = document.getElementById('micBtn');
+const attachBtn = document.getElementById('attachBtn');
+const fileInput = document.getElementById('fileInput');
+
+function submitText(){
+  const v = txt.value; txt.value=''; sendText(v);
+}
+sendBtn.onclick = submitText;
+txt.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submitText(); } });
+micBtn.onclick = startVoice;
+attachBtn.onclick = ()=> fileInput.click();
+fileInput.onchange = e=>{
+  const f = e.target.files && e.target.files[0];
+  if(!f) return;
+  const url = URL.createObjectURL(f);
+  handleAttachment(url, f.name);
+  fileInput.value='';
+};
+
+goHome();
+
+/* ============ 需求文档 ============ */
+function openReadme(){
+  const modal = document.getElementById('docModal');
+  const frame = document.getElementById('docFrame');
+  // cache-bust so regenerated README.html is not stuck on an old raw-<pre> version
+  frame.src = 'README.html?t=' + Date.now();
+  modal.classList.add('show');
+}
+function closeReadme(){
+  document.getElementById('docModal').classList.remove('show');
+  document.getElementById('docFrame').src = 'about:blank';
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeReadme(); });
+</script>
+</body>
+</html>

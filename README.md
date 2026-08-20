@@ -8,6 +8,64 @@
 |------|------|
 | 在线演示 | https://ai-cunxiaoer.onrender.com |
 | 源码仓库 | https://github.com/deemojiang/ai-cunxiaoer |
+| 原型地址 | [原型交互](docs/未来乡村AI版原型.html) |
+
+---
+
+## 目录结构
+
+```
+ai-cunxiaoer/
+├── package.json              # npm workspaces 根脚本（dev / build / start）
+├── package-lock.json
+├── render.yaml               # Render Blueprint 部署配置
+├── .node-version
+├── README.md                 # 本说明
+├── docs/                     # 产品需求、原型、技术预算与演示文稿
+│   ├── README.md             # docs 入口（指向唯一需求清单）
+│   ├── 未来乡村AI版-便民服务需求清单.md
+│   ├── 未来乡村AI版-技术框架与成本预算.html
+│   ├── 未来乡村AI版原型.html  # 原型交互
+│   └── AI村小二-产品演示-3.pptx
+├── scripts/                  # 截图、PPT、冒烟测试等辅助脚本
+│   ├── capture_screenshots.py
+│   ├── generate_flowcharts.py
+│   ├── generate_ppt.py
+│   ├── beautify_ppt_from_template.py
+│   ├── render_readme_html.js
+│   ├── smoke-test.mjs
+│   └── push-and-deploy.md
+├── web/                      # 前端（Vite + React）
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tsconfig.json
+│   ├── public/docs/          # 应用内需求摘要
+│   └── src/
+│       ├── api/              # API 客户端
+│       ├── engine/           # 意图 / 场景 / 天气等对话引擎
+│       ├── pages/user/       # 村民端（ChatPage / MyPage）
+│       ├── pages/admin/      # 管理后台页面
+│       ├── styles/
+│       ├── App.tsx
+│       └── main.tsx
+└── server/                   # 后端（Express）
+    ├── package.json
+    ├── tsconfig.json
+    ├── data/db.json          # JSON 持久化
+    └── src/                  # API 与数据访问（index.ts / db.ts）
+```
+
+---
+
+## 主要文档说明
+
+| 文档 | 说明 |
+|------|------|
+| [便民服务需求清单](docs/未来乡村AI版-便民服务需求清单.md) | **唯一需求文档**：AI 村小二便民服务（十二场景、六步流程、工单、后台与分期）+ 附录九场景功能域梳理 |
+| [技术框架与成本预算](docs/未来乡村AI版-技术框架与成本预算.html) | 技术选型、架构思路与成本预算（浏览器打开） |
+| [原型交互](docs/未来乡村AI版原型.html) | AI 村小二对话办事交互原型（浏览器打开） |
+| [产品演示文稿](docs/AI村小二-产品演示-3.pptx) | 产品演示 PPT |
 
 ---
 
@@ -58,39 +116,6 @@ flowchart LR
 | 数据 | `server/data/db.json` | 工单、服务配置、村务、知识库、管理员 |
 
 生产环境由服务端托管 `web/dist`，默认端口 `3001`（可用环境变量 `PORT` 覆盖）。
-
----
-
-## 目录结构
-
-```
-ai-cunxiaoer/
-├── package.json          # npm workspaces 根脚本（dev / build / start）
-├── render.yaml           # Render Blueprint 部署配置
-├── README.md             # 本说明
-├── docs/                 # 产品需求、原型、技术预算与演示文稿
-├── scripts/              # 截图、PPT、冒烟测试等辅助脚本
-├── web/                  # 前端（Vite + React）
-│   └── src/
-│       ├── api/          # API 客户端
-│       ├── engine/       # 意图 / 场景 / 天气等对话引擎
-│       ├── pages/user/   # 村民端页面
-│       └── pages/admin/  # 管理后台页面
-└── server/               # 后端（Express）
-    ├── data/db.json      # JSON 持久化
-    └── src/              # API 与数据访问
-```
-
----
-
-## 主要文档说明
-
-| 文档 | 说明 |
-|------|------|
-| [便民服务需求清单](docs/未来乡村AI版-便民服务需求清单.md) | **唯一需求文档**：AI 村小二便民服务（十二场景、六步流程、工单、后台与分期）+ 附录九场景功能域梳理 |
-| [技术框架与成本预算](docs/未来乡村AI版-技术框架与成本预算.html) | 技术选型、架构思路与成本预算（浏览器打开） |
-| [对话流程原型](docs/未来乡村AI版原型.html) | AI 村小二对话办事交互原型（浏览器打开） |
-| [产品演示文稿](docs/AI村小二-产品演示-3.pptx) | 产品演示 PPT |
 
 ---
 
