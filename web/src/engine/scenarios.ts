@@ -117,6 +117,44 @@ function medHospitalName(ctx: Ctx) {
   return h.includes(' · ') ? h.split(' · ')[0] : h;
 }
 
+type InfoPanel = Extract<import('./types').SceneNode, { infoPanel: unknown }>['infoPanel'];
+
+const VILLAGE_PANELS: Record<string, InfoPanel> = {
+  村概况: {
+    title: '🏘️ 龙溪村 · 村概况',
+    sub: '浙江省湖州市 · 长兴县 · 小浦镇',
+    body: '<b>龙溪村</b>位于长兴县小浦镇，因龙溪穿村而过得名。全村辖 6 个村民小组，常住人口约 1200 人。<br><br>📍 村委会地址：龙溪路 88 号<br>☎️ 村务热线：0572-60****88<br>🕐 办公时间：周一至周五 8:30-17:00',
+  },
+  班子成员: {
+    title: '👥 龙溪村 · 班子成员',
+    sub: '2026年度',
+    cadres: [
+      { av: '👨‍💼', name: '王建国', role: '村支书 · 兼村主任', phone: '138****1001' },
+      { av: '👩‍💼', name: '李秀英', role: '副书记 · 分管民政', phone: '139****1002' },
+      { av: '👨‍💼', name: '张强', role: '村委委员 · 分管综治', phone: '137****1003' },
+      { av: '👩‍💼', name: '陈芳', role: '村委委员 · 分管财务', phone: '136****1004' },
+      { av: '👨‍💼', name: '赵明', role: '村委委员 · 分管农业', phone: '135****1005' },
+    ],
+  },
+  村社网格: {
+    title: '🗺️ 龙溪村 · 村社网格',
+    sub: '6 个村民小组',
+    communities: [
+      { name: '1组（龙溪头）', lead: '王大哥', households: '42户' },
+      { name: '2组（溪南）', lead: '李大姐', households: '38户' },
+      { name: '3组（溪北）', lead: '张叔', households: '45户' },
+      { name: '4组（山脚）', lead: '陈婶', households: '36户' },
+      { name: '5组（新村）', lead: '赵哥', households: '40户' },
+      { name: '6组（龙溪尾）', lead: '刘姐', households: '35户' },
+    ],
+  },
+  村约村规: {
+    title: '📜 龙溪村 · 村约村规',
+    sub: '2024年村民代表大会修订',
+    body: '<b>一、环境卫生</b><br>房前屋后保持整洁，垃圾定点投放。<br><br><b>二、邻里和睦</b><br>互尊互让，矛盾先找网格长调解。<br><br><b>三、红白喜事</b><br>简办节约，使用文化礼堂需预约。<br><br><b>四、生态保护</b><br>保护龙溪水系，禁止电鱼毒鱼。<br><br><b>五、安全治理</b><br>发现安全隐患及时报告村委。',
+  },
+};
+
 export const scenarios: Record<string, Scenario> = {
   problem: {
     key: 'problem',
@@ -718,40 +756,43 @@ export const scenarios: Record<string, Scenario> = {
     steps: [
       { step: 1 },
       { bot: '为您展示【浙江省 · 长兴县 · 龙溪村】村务公开信息 👇\n想了解哪方面？' },
-      { opts: ['村概况', '班子成员', '村社网格', '村约村规'], pick: '村概况' },
+      {
+        opts: ['村概况', '班子成员', '村社网格', '村约村规'],
+        pick: '村概况',
+        as: 'v1',
+      },
       { step: 6 },
-      {
-        infoPanel: {
-          title: '🏘️ 龙溪村 · 村概况',
-          sub: '浙江省湖州市 · 长兴县 · 小浦镇',
-          body: '<b>龙溪村</b>位于长兴县小浦镇，因龙溪穿村而过得名。全村辖 6 个村民小组，常住人口约 1200 人。<br><br>📍 村委会地址：龙溪路 88 号<br>☎️ 村务热线：0572-60****88<br>🕐 办公时间：周一至周五 8:30-17:00',
-        },
-      },
+      { infoPanelFn: (ctx) => VILLAGE_PANELS[ctx.v1] || null },
       { bot: '还想了解其它公开信息吗？' },
-      { opts: ['班子成员', '村社网格', '村约村规', '返回首页'], pick: '班子成员' },
       {
-        infoPanel: {
-          title: '👥 龙溪村 · 班子成员',
-          sub: '2026年度',
-          cadres: [
-            { av: '👨‍💼', name: '王建国', role: '村支书 · 兼村主任', phone: '138****1001' },
-            { av: '👩‍💼', name: '李秀英', role: '副书记 · 分管民政', phone: '139****1002' },
-            { av: '👨‍💼', name: '张强', role: '村委委员 · 分管综治', phone: '137****1003' },
-            { av: '👩‍💼', name: '陈芳', role: '村委委员 · 分管财务', phone: '136****1004' },
-            { av: '👨‍💼', name: '赵明', role: '村委委员 · 分管农业', phone: '135****1005' },
-          ],
-        },
+        opts: ['班子成员', '村社网格', '村约村规', '返回首页'],
+        pick: '班子成员',
+        as: 'v2',
       },
+      {
+        goto: (ctx) => (ctx.v2 === '返回首页' ? 'villageEnd' : 'villageShow2'),
+      },
+      { label: 'villageShow2' },
+      { infoPanelFn: (ctx) => VILLAGE_PANELS[ctx.v2] || null },
       { bot: '继续查看？' },
-      { opts: ['村社网格', '村约村规', '够了谢谢'], pick: '村约村规' },
       {
-        infoPanel: {
-          title: '📜 龙溪村 · 村约村规',
-          sub: '2024年村民代表大会修订',
-          body: '<b>一、环境卫生</b><br>房前屋后保持整洁，垃圾定点投放。<br><br><b>二、邻里和睦</b><br>互尊互让，矛盾先找网格长调解。<br><br><b>三、红白喜事</b><br>简办节约，使用文化礼堂需预约。<br><br><b>四、生态保护</b><br>保护龙溪水系，禁止电鱼毒鱼。<br><br><b>五、安全治理</b><br>发现安全隐患及时报告村委。',
-        },
+        opts: ['村社网格', '村约村规', '够了，谢谢'],
+        pick: '村约村规',
+        as: 'v3',
       },
+      {
+        goto: (ctx) =>
+          /够了|谢谢/.test(ctx.v3 || '') ? 'villageDone' : 'villageShow3',
+      },
+      { label: 'villageShow3' },
+      { infoPanelFn: (ctx) => VILLAGE_PANELS[ctx.v3] || null },
+      { label: 'villageDone' },
       { result: '📋 以上信息均来自龙溪村政务公开栏，如有更新以村委最新发布为准。' },
+      { goto: 'villageFinish' },
+      { label: 'villageEnd' },
+      { bot: '好的，已返回。有事随时再找我～' },
+      { goHome: true },
+      { label: 'villageFinish' },
     ],
   },
 

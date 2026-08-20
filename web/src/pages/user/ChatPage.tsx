@@ -258,10 +258,24 @@ export default function ChatPage() {
         await sleep(450);
         continue;
       }
+      if ('infoPanelFn' in node) {
+        const panel = node.infoPanelFn(ctx);
+        if (panel) {
+          append({ kind: 'info', info: panel });
+          await sleep(450);
+        }
+        continue;
+      }
       if ('infoPanel' in node) {
         append({ kind: 'info', info: node.infoPanel });
         await sleep(450);
         continue;
+      }
+      if ('goHome' in node && node.goHome) {
+        await sleep(500);
+        if (my !== abort.current) return;
+        goHome();
+        return;
       }
       if ('medSlotsFn' in node) {
         append({ kind: 'med', med: node.medSlotsFn(ctx) });

@@ -64,6 +64,18 @@ export type SceneNode =
       };
     }
   | {
+      infoPanelFn: (ctx: Ctx) =>
+        | {
+            title: string;
+            sub?: string;
+            body?: string;
+            cadres?: { av: string; name: string; role: string; phone: string }[];
+            communities?: { name: string; lead: string; households: string }[];
+          }
+        | null
+        | undefined;
+    }
+  | {
       medSlots: {
         title: string;
         slots: { nm: string; st: string; label: string }[];
@@ -76,7 +88,8 @@ export type SceneNode =
       };
     }
   | { createOrder: CreateOrderPayload }
-  | { createOrderFn: (ctx: Ctx) => CreateOrderPayload };
+  | { createOrderFn: (ctx: Ctx) => CreateOrderPayload }
+  | { goHome: true };
 
 export type Scenario = {
   key: string;
