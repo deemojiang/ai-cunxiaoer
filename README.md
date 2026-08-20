@@ -22,7 +22,6 @@ ai-cunxiaoer/
 ├── .node-version
 ├── README.md                 # 本说明
 ├── docs/                     # 产品需求、原型、技术预算与演示文稿
-│   ├── README.md             # docs 入口（指向唯一需求清单）
 │   ├── 未来乡村AI版-便民服务需求清单.md
 │   ├── 未来乡村AI版-技术框架与成本预算.html
 │   ├── 未来乡村AI版原型.html  # 原型交互
