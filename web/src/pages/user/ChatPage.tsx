@@ -27,6 +27,7 @@ export default function ChatPage() {
   const [interimText, setInterimText] = useState('');
   const [showAll, setShowAll] = useState(false);
   const [docOpen, setDocOpen] = useState(false);
+  const [docHtml, setDocHtml] = useState(() => renderDocMarkdown(DOC_SUMMARY));
   const [busy, setBusy] = useState(false);
   const [awaitingText, setAwaitingText] = useState(false);
   const [inputHint, setInputHint] = useState('说句话或打字，问村小二…');
@@ -75,6 +76,22 @@ export default function ChatPage() {
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [msgs]);
+
+  useEffect(() => {
+    if (!docOpen) return;
+    let cancelled = false;
+    fetch('/docs/需求文档摘要.md')
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+      .then((md) => {
+        if (!cancelled) setDocHtml(renderDocMarkdown(md));
+      })
+      .catch(() => {
+        if (!cancelled) setDocHtml(renderDocMarkdown(DOC_SUMMARY));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [docOpen]);
 
   const append = (m: ChatMsg | ChatMsg[]) =>
     setMsgs((prev) => [...prev, ...(Array.isArray(m) ? m : [m])]);
@@ -913,26 +930,197 @@ export default function ChatPage() {
             <div>📄 AI 村小二 · 需求文档摘要</div>
             <button type="button" onClick={() => setDocOpen(false)}>×</button>
           </div>
-          <div className="doc-body">{DOC_SUMMARY}</div>
+          <div className="doc-body" dangerouslySetInnerHTML={{ __html: docHtml }} />
         </div>
       </div>
     </div>
   );
 }
 
-const DOC_SUMMARY = `未来乡村 AI 版 · 便民服务需求清单（摘要）
+function escapeHtml(s: string) {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
-定位：以 AI 村小二 为核心入口的村民便民服务应用
-原则：对话即服务 — 群众用说话/打字提问，AI 理解意图后提供咨询、导引、代办填报、问题上报等服务
+function formatInline(s: string) {
+  return escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
 
-核心能力：
-· 首页两排服务卡片 +「更多」
-· 打字 / 语音（长按说话）/ 附件三种输入
-· 十二场景六步办事流程（识别→确认→采集→摘要→生单→反馈）
-· 通用问答（天气、百科、知识库）
-· 我的工单中心（分类、详情、进度）
-· 管理后台（工单、村务、服务配置、知识库）
+/** Minimal markdown → HTML for the requirements modal (headers, lists, paragraphs). */
+function renderDocMarkdown(md: string): string {
+  const lines = md.replace(/\r\n/g, '\n').split('\n');
+  const out: string[] = [];
+  let inList = false;
+  const closeList = () => {
+    if (inList) {
+      out.push('</ul>');
+      inList = false;
+    }
+  };
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (/^#{1,3}\s/.test(line)) {
+      closeList();
+      const level = line.match(/^#+/)![0].length;
+      const text = line.replace(/^#+\s*/, '');
+      const tag = level === 1 ? 'h3' : level === 2 ? 'h4' : 'h5';
+      out.push(`<${tag}>${formatInline(text)}</${tag}>`);
+    } else if (/^[-*·•]\s+/.test(line)) {
+      if (!inList) {
+        out.push('<ul>');
+        inList = true;
+      }
+      out.push(`<li>${formatInline(line.replace(/^[-*·•]\s+/, ''))}</li>`);
+    } else if (/^\d+\.\s+/.test(line)) {
+      closeList();
+      out.push(`<p class="doc-step">${formatInline(line)}</p>`);
+    } else if (line.trim() === '') {
+      closeList();
+    } else {
+      closeList();
+      out.push(`<p>${formatInline(line)}</p>`);
+    }
+  }
+  closeList();
+  return out.join('');
+}
 
-默认首页场景：反映问题、设施报修、卖农产品、政策咨询、礼堂预约、医疗挂号、村务公开、更多
+/** Inline fallback if `/docs/需求文档摘要.md` cannot be fetched. */
+const DOC_SUMMARY = `# AI 村小二 · 需求文档摘要
 
-完整文档见原目录：未来乡村ai版/README.md`;
+Slogan：「有问题，问村小二」— 您的 AI 乡村生活助手
+
+## 一、产品定位与原则
+
+定位：以 AI 村小二 为核心入口的村民便民服务应用。
+
+原则：对话即服务 — 群众用说话 / 打字 / 附件描述需求，AI 理解意图后提供咨询、导引、代办填报、问题上报等服务。
+
+要解决的痛点：
+- 功能多、菜单复杂，老人不会用 → 一个对话框搞定
+- 不知道找哪个模块 → AI 自动识别意图
+- 政策文件看不懂 → 大白话解读本地政策
+- 有问题不知道找谁 → AI 引导填报并生成结构化工单
+- 服务分散在多个小程序 → 统一入口串联便民服务
+- 干部下班无人回应 → AI 7×24 先应答，复杂问题转人工
+
+## 二、核心架构与六步办事流程
+
+架构：村民输入 → AI 村小二（意图识别 / 多轮对话 / 知识问答 / 工单生成）→ 咨询 / 反馈 / 交易 / 活动 / 链接类服务 → 轻量管理后台。
+
+首页：两排服务卡片（4×2，末格「更多」）+ 示例提问气泡；点选卡片或自由描述均可进入办事。
+
+六步办事（办事类统一流程）：
+1. 识别场景 — 点选或话术匹配服务，加载提问模板
+2. 确认事项 — AI 复述理解，用户确认 / 纠正
+3. 采集信息 — 按模板逐项追问（一次一问，可预填，可语音 / 拍照）
+4. 确认摘要 — 汇总核对，可修改单项
+5. 自动生单 — 校验必填后写入工单并派单 / 审核
+6. 反馈结果 — 告知单号、时效；可查进度、可评价
+
+非办事类（天气、百科等）即问即答，不强制生单。
+
+## 三、三种输入方式
+
+- 打字：底部输入框，回车或点发送
+- 语音：长按麦克风说话（演示可模拟 ASR），适合老人
+- 附件：回形针上传图片，AI 引导选择对应办事场景
+
+## 四、十二场景详细说明
+
+### 1. 反映问题
+环境卫生、道路破损、噪音扰民、违建、邻里纠纷等上报。
+流程：选类型 → 位置与描述 → 建议拍照 → 是否匿名 → 确认摘要 → 生成问题反馈工单（FK）。
+派单按类型到环卫 / 基建 / 网格员；普通约 48 小时，安全隐患优先；办结后可回访。
+
+### 2. 设施报修
+路灯、健身器材、垃圾桶、监控等公共设施故障报修。
+流程：设施类型 → 位置 → 故障描述 → 现场照片 → 联系方式 → 生成报修工单（BX）。
+按设施类型派维修责任人；一般约 24 小时，影响安全立即响应；维修完成可上传照片关单。
+
+### 3. 卖农产品
+村民上架农产品、手工艺品、闲置物品。
+流程：品名 → 品类 / 数量规格 → 期望价格 → 商品照片 → 联系方式 → 生成上架审核单（SP）。
+村委审核通过后上架村民商城；审核一般当天完成，通过后通知卖家。
+
+### 4. 政策咨询
+养殖补贴、创业扶持、培训补贴、低保医保等政策问询。
+流程：描述个人情况 → AI 追问关键条件 → 知识库检索并用大白话解读办理地点与材料。
+通常不生单；可说「帮我预约去村委会」转预约服务单（YY）。
+
+### 5. 技能咨询
+电商、手工艺、驾驶、养殖加工等技能学习与培训咨询。
+流程：意向技能 → 现有基础 → 时间偏好 → 匹配镇/村课程与技能达人 → 可一键生成培训报名单（PX）。
+默认 RAG 答复 + 资源推荐；确认报名后开班提醒。
+
+### 6. 找活干
+村民求职、了解附近招工信息。
+流程：年龄 → 技能 / 经验 → 期望工种与全职兼职 → 联系方式 → 求职登记单（QZ）。
+AI 匹配招聘岗位展示；用户选中后可生成投递记录，由企业 / 村委对接。
+
+### 7. 老年订餐
+查看老年食堂菜单、预订次日餐食，可选送餐上门。
+流程：订餐日期 → 套餐选择 → 份数 → 是否送餐 → 联系人 → 订餐确认单（DC）。
+同步食堂侧确认取餐 / 配送；可取餐提醒与评价。
+
+### 8. 邻里互助
+搬家求助、借工具、临时照看、闲置交换等。
+流程：需求类型 → 具体描述 → 期望时间与地点 → 联系方式 → 互助需求单（HZ）。
+公开发布到邻里圈，AI 可推荐可能帮忙的邻居；完成后双方确认，可记积分。
+
+### 9. 礼堂预约
+红白喜事及家宴：预约文化礼堂场地、厨师与菜单。
+流程：宴席类型 → 日期 / 午晚场 → 桌数 → 查场地与厨师档期 → 选厨师 → 菜单套餐可调 → 确认 → 礼堂预约单（LT）。
+村委礼堂管理员与厨师确认后锁定档期；白事等紧急预约优先协调。
+
+### 10. 医疗挂号
+预约乡镇卫生院 / 县级医院科室号源。
+流程：挂号 / 查院 → 医院与科室 → 查余号时段 → 就诊人信息 → 预约挂号单（GH）。
+就诊前提醒到院取号；可与健康咨询互相跳转。
+
+### 11. 健康咨询
+常见症状了解、用药提醒、是否需要就医导引（含免责声明）。
+流程：症状描述 → 追问年龄 / 用药史等 → 大白话建议；紧急引导拨打 120。
+通常不生单；可说「帮我挂号」转入医疗挂号流程。
+
+### 12. 村务公开
+村概况、班子成员、村社网格、村约村规等公开信息查询（示例：长兴县龙溪村）。
+流程：点选或询问类别 → 结构化面板展示 → 可一键联系 / 预约村干部。
+不生单；信息由后台村务公开模块维护更新。
+
+## 五、我的 · 工单中心
+
+入口：右上角「我的」。
+能力：用户信息与进行中 / 待确认 / 已完成统计；分类筛选；工单卡片列表；详情含完整字段与处理进度时间线。
+联动：详情可「问 AI 查进度」；对话中说单号或「进度怎么样了」即可查状态。
+
+## 六、管理后台模块
+
+路径前缀 /admin（登录 /admin/login）。
+- 概览：后台首页
+- 工单：受理 / 完成问题、报修、预约等工单
+- 村务公开：村概况、班子、网格、村规维护
+- 服务配置：服务开关与首页展示项、采集模板
+- 知识库：政策 / FAQ 等知识条目 CRUD
+
+## 七、通用问答
+
+- 今日天气：温度、风力、湿度、农事 / 生活建议
+- 百科常识：节气、保存方法等，大白话 + 来源标注
+- 联网搜索摘要：其它日常疑问
+- 闲聊问候：自然回应并引导可办事项
+
+## 八、完整文档路径（仓库 docs/）
+
+- docs/README.md — 文档索引与产品需求总览
+- docs/未来乡村AI版-便民服务需求清单.md — 正式需求正文
+- docs/未来乡村功能需求梳理.md — 功能域梳理
+- docs/未来乡村AI版-技术框架与成本预算.html — 技术选型与成本
+- docs/未来乡村AI版原型.html — 对话办事交互原型
+- docs/AI村小二-产品演示-3.pptx — 产品演示文稿
+- README.md — 工程说明与功能列表
+
+在线演示：https://ai-cunxiaoer.onrender.com`;
