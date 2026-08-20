@@ -55,6 +55,14 @@ export type SceneNode =
       };
     }
   | {
+      menuFn: (ctx: Ctx) => {
+        type?: string;
+        title: string;
+        cats: { name: string; items: string }[];
+        tip?: string;
+      };
+    }
+  | {
       infoPanel: {
         title: string;
         sub?: string;

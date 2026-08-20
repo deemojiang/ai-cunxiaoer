@@ -253,6 +253,11 @@ export default function ChatPage() {
         await sleep(450);
         continue;
       }
+      if ('menuFn' in node) {
+        append({ kind: 'menu', menu: node.menuFn(ctx) });
+        await sleep(450);
+        continue;
+      }
       if ('menu' in node) {
         append({ kind: 'menu', menu: node.menu });
         await sleep(450);

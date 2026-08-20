@@ -44,6 +44,52 @@ function problemTypeLabel(ctx: Ctx) {
   return `${ctx.category || '其他'} · ${m.issue}`;
 }
 
+/** 礼堂宴席选项 → 展示名 */
+function hallBanquetName(ctx: Ctx): string {
+  const raw = ctx.banquet || '';
+  if (/白事/.test(raw)) return '白事宴席';
+  if (/其它|其他/.test(raw)) return '其它家宴';
+  return '红事宴席';
+}
+
+function hallMenuFor(ctx: Ctx) {
+  const name = hallBanquetName(ctx);
+  if (name === '白事宴席') {
+    return {
+      type: 'white',
+      title: '🍽️ 白事宴席菜单推荐（18桌）',
+      cats: [
+        { name: '冷盘（6道）', items: '白切鸡、酱鸭、海蜇头、凉拌黄瓜、皮蛋豆腐、水果拼盘' },
+        { name: '热菜（10道）', items: '红烧肉、清蒸鲈鱼、笋干烧肉、时令蔬菜、菌菇汤、豆腐汤等' },
+        { name: '主食点心', items: '米饭、馒头、清粥、水果' },
+      ],
+      tip: '按 450元/桌 估算 · 可换菜、加减道数',
+    };
+  }
+  if (name === '其它家宴') {
+    return {
+      type: 'family',
+      title: '🍽️ 其它家宴菜单推荐（18桌）',
+      cats: [
+        { name: '冷盘（6道）', items: '白切鸡、酱鸭、凉拌木耳、皮蛋豆腐、糟货拼盘、水果拼盘' },
+        { name: '热菜（10道）', items: '红烧肉、清蒸鲈鱼、白灼基围虾、笋干烧肉、时令蔬菜、菌菇汤等' },
+        { name: '主食点心', items: '米饭、点心、水果、糖果' },
+      ],
+      tip: '按 480元/桌 估算 · 可换菜、加减道数',
+    };
+  }
+  return {
+    type: 'red',
+    title: '🍽️ 红事宴席菜单推荐（18桌）',
+    cats: [
+      { name: '冷盘（8道）', items: '白切鸡、酱鸭、海蜇头、醉虾、凉拌木耳、皮蛋豆腐、糟货拼盘、水果拼盘' },
+      { name: '热菜（12道）', items: '红烧肉、清蒸鲈鱼、白灼基围虾、笋干烧肉、时令蔬菜、菌菇汤等' },
+      { name: '主食点心', items: '米饭、长寿面、水果、糖果' },
+    ],
+    tip: '按 500元/桌 估算 · 可换菜、加减道数',
+  };
+}
+
 const REPAIR_META: Record<string, { demo: string; fault: string; place: string; assignee: string }> = {
   路灯: {
     demo: '3组文化礼堂门口那盏路灯，这两天晚上都不亮了',
@@ -993,9 +1039,15 @@ export const scenarios: Record<string, Scenario> = {
     steps: [
       { step: 1 },
       { bot: '好的，帮您预约文化礼堂办红白喜事。请问是办什么类型的宴席？' },
-      { opts: ['红事（婚宴/满月/寿宴）', '白事（追悼/告别）', '其它家宴'], pick: '红事（婚宴/满月/寿宴）' },
+      {
+        opts: ['红事（婚宴/满月/寿宴）', '白事（追悼/告别）', '其它家宴'],
+        pick: '红事（婚宴/满月/寿宴）',
+        as: 'banquet',
+      },
       { step: 2 },
-      { bot: '收到，是「红事宴席」。请问大概哪天办？预计多少桌？' },
+      {
+        botFn: (ctx) => `收到，是「${hallBanquetName(ctx)}」。请问大概哪天办？预计多少桌？`,
+      },
       { user: '下周六，18桌左右，大概180人' },
       { step: 3 },
       { bot: '正在查询场地与厨师档期…' },
@@ -1025,39 +1077,33 @@ export const scenarios: Record<string, Scenario> = {
       { opts: ['中午场', '改其它日期'], pick: '中午场', as: 'slot' },
       { bot: '需要帮您预约厨师吗？' },
       { opts: ['要，约张师傅+李帮厨', '只要张师傅', '场地就行'], pick: '要，约张师傅+李帮厨' },
-      { bot: '18桌红事，推荐菜单如下 👇' },
       {
-        menu: {
-          type: 'red',
-          title: '🍽️ 红事宴席菜单推荐（18桌）',
-          cats: [
-            { name: '冷盘（8道）', items: '白切鸡、酱鸭、海蜇头、醉虾、凉拌木耳、皮蛋豆腐、糟货拼盘、水果拼盘' },
-            { name: '热菜（12道）', items: '红烧肉、清蒸鲈鱼、白灼基围虾、笋干烧肉、时令蔬菜、菌菇汤等' },
-            { name: '主食点心', items: '米饭、长寿面、水果、糖果' },
-          ],
-          tip: '按 500元/桌 估算 · 可换菜、加减道数',
-        },
+        botFn: (ctx) => `18桌${hallBanquetName(ctx)}，推荐菜单如下 👇`,
       },
+      { menuFn: (ctx) => hallMenuFor(ctx) },
       { bot: '这套菜单合适吗？' },
       { opts: ['就用这套', '换几道：不要虾，加本地土鹅'], pick: '换几道：不要虾，加本地土鹅' },
       { bot: '已调整：去掉虾，增加本地土鹅；可备注清淡桌。请核对预约信息 👇' },
       { label: 'summary' },
       { step: 4 },
       {
-        cardFn: (ctx) => ({
-          title: '文化礼堂预约单',
-          status: ['wait', '待确认'],
-          rows: [
-            ['类型', '红事宴席'],
-            ['时段', ctx.slot === '改其它日期' ? '其它日期（待定）' : '下周六 中午'],
-            ['规模', '18桌 · 约180人'],
-            ['厨师', '张师傅 + 李帮厨'],
-            ['菜单', '标准套餐（去虾+加土鹅）'],
-            ['联系人', '张大叔 138****1234'],
-          ],
-          track: ['已提交', '村委确认', '预约成功'],
-          on: 0,
-        }),
+        cardFn: (ctx) => {
+          const banquet = hallBanquetName(ctx);
+          return {
+            title: '文化礼堂预约单',
+            status: ['wait', '待确认'] as [string, string],
+            rows: [
+              ['类型', banquet],
+              ['时段', ctx.slot === '改其它日期' ? '其它日期（待定）' : '下周六 中午'],
+              ['规模', '18桌 · 约180人'],
+              ['厨师', '张师傅 + 李帮厨'],
+              ['菜单', '标准套餐（去虾+加土鹅）'],
+              ['联系人', '张大叔 138****1234'],
+            ] as [string, string][],
+            track: ['已提交', '村委确认', '预约成功'],
+            on: 0,
+          };
+        },
       },
       { opts: ['确认提交预约', '修改日期'], pick: '确认提交预约', as: 'confirm' },
       {
@@ -1071,23 +1117,27 @@ export const scenarios: Record<string, Scenario> = {
       { label: 'submit' },
       { step: 5 },
       {
-        createOrderFn: (ctx) => ({
-          prefix: 'LT',
-          cat: 'book',
-          icon: '🏛️',
-          title: '文化礼堂预约',
-          type: ctx.slot === '改其它日期' ? '红事宴席 · 其它日期' : '红事宴席 · 中午',
-          status: 'wait',
-          statusText: '待确认',
-          summary: '18桌 · 张师傅+李帮厨',
-          rows: [
-            ['类型', '红事宴席'],
-            ['时段', ctx.slot === '改其它日期' ? '其它日期（待定）' : '下周六 中午'],
-            ['规模', '18桌'],
-            ['厨师', '张师傅 + 李帮厨'],
-          ],
-          track: ['已提交', '村委确认', '预约成功'],
-        }),
+        createOrderFn: (ctx) => {
+          const banquet = hallBanquetName(ctx);
+          const slotPart = ctx.slot === '改其它日期' ? '其它日期' : '中午';
+          return {
+            prefix: 'LT',
+            cat: 'book',
+            icon: '🏛️',
+            title: '文化礼堂预约',
+            type: `${banquet} · ${slotPart}`,
+            status: 'wait' as const,
+            statusText: '待确认',
+            summary: `18桌 · ${banquet} · 张师傅+李帮厨`,
+            rows: [
+              ['类型', banquet],
+              ['时段', ctx.slot === '改其它日期' ? '其它日期（待定）' : '下周六 中午'],
+              ['规模', '18桌'],
+              ['厨师', '张师傅 + 李帮厨'],
+            ],
+            track: ['已提交', '村委确认', '预约成功'],
+          };
+        },
       },
       { bot: '✅ 预约单已提交！已通知村委礼堂管理员确认档期。' },
       { step: 6 },
