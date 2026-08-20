@@ -8,7 +8,7 @@
 |------|------|
 | 在线演示 | https://ai-cunxiaoer.onrender.com |
 | 源码仓库 | https://github.com/deemojiang/ai-cunxiaoer |
-| 原型地址 | [原型交互](docs/未来乡村AI版原型.html) |
+| 原型地址 |https://deemojiang.github.io/PR/ai-cunxiaoer/|
 
 ---
 
