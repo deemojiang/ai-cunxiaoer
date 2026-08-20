@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const nav = useNavigate();
 
@@ -24,7 +24,6 @@ export default function LoginPage() {
     <div className="admin-layout">
       <form className="login-box" onSubmit={submit}>
         <h2>管理后台登录</h2>
-        <p>默认账号 admin / admin123</p>
         <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="用户名" />
         <input
           type="password"

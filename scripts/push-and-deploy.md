@@ -38,6 +38,6 @@ git push -u origin main
 | 入口 | 路径 |
 |------|------|
 | 村民端 | `/` |
-| 管理后台 | `/admin/login`（`admin` / `admin123`） |
+| 管理后台 | `/admin/login` |
 
 > 免费实例约 15 分钟无访问会休眠，首次打开可能需等待十几秒。
